@@ -117,6 +117,7 @@ async def chat_endpoint(websocket: WebSocket, id: str):
                 continue
             response_json = {
                 "id": id,
+                "request": json_data,
                 "response": response_text,
             }
             await manager.broadcast_json(response_json)
