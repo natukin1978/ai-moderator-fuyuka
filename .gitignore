@@ -169,3 +169,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Not managed as it is important information
+/config.json
+/messages/error_message.txt
+/messages/stop_candidate_message.txt
+/prompts/base_prompt.txt
