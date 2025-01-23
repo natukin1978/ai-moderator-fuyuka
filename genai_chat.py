@@ -12,7 +12,6 @@ from google.generativeai.types import (
 
 import global_value as g
 from cache_helper import get_cache_filepath
-from one_comme_users import OneCommeUsers
 
 
 class GenAIChat:
