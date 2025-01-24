@@ -1,6 +1,8 @@
 import datetime
+import json
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 import global_value as g
@@ -127,14 +129,21 @@ async def chat_test() -> str:
     return HTMLResponse(html)
 
 
-@app.get("/reset_chat")
-async def reset_chat():
-    genai_chat.reset_chat_history()
-    return {"result": True}
+@app.get("/chat/{id}")
+async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
+    json_data = jsonable_encoder(chat)
+    response_text = genai_chat.send_message_by_json(json_data)
+    response_json = {
+        "id": id,
+        "request": json_data,
+        "response": response_text,
+    }
+    await manager.broadcast_json(response_json)
+    return JSONResponse(response_json)
 
 
 @app.websocket("/chat/{id}")
-async def chat_endpoint(websocket: WebSocket, id: str):
+async def chat_ws(websocket: WebSocket, id: str) -> None:
     await manager.connect(websocket)
     try:
         while True:
@@ -155,3 +164,9 @@ async def chat_endpoint(websocket: WebSocket, id: str):
         print(f"Error: {e}")
     finally:
         print("Client disconnected")
+
+
+@app.get("/reset_chat")
+async def reset_chat() -> Result:
+    genai_chat.reset_chat_history()
+    return {"result": True}
