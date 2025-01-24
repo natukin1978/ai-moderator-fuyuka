@@ -1,5 +1,7 @@
+import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 import global_value as g
 from config_helper import readConfig
@@ -46,6 +48,31 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+localtime = datetime.datetime.now()
+localtime_iso_8601 = localtime.isoformat()
+answerLength = 30
+
+
+class ChatModel(BaseModel):
+    dateTime: str = localtime_iso_8601
+    id: str = "master"
+    displayName: str = "マスター"
+    nickname: str = "ご主人様"
+    content: str = "おはようございます。今日もよろしくお願いします。"
+    isFirst: bool = False
+    isFirstOnStream: bool = False
+    additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
+
+
+class ChatResult(BaseModel):
+    id: str
+    request: ChatModel
+    response: str
+
+
+class Result(BaseModel):
+    result: bool = True
 
 html = """
 <!DOCTYPE html>
