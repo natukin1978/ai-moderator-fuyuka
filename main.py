@@ -2,6 +2,7 @@ import datetime
 import json
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -76,45 +77,42 @@ class ChatResult(BaseModel):
 class Result(BaseModel):
     result: bool = True
 
+
+chat_template = json.dumps(jsonable_encoder(ChatModel()), indent=2, ensure_ascii=False)
+
 html = """
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Chat</title>
+        <title>Fuyuka Chat Test</title>
     </head>
     <body>
-        <h1>WebSocket Chat</h1>
+        <h1>Fuyuka Chat Test</h1>
         <h2>Your ID: <span id="ws-id"></span></h2>
         <form action="" onsubmit="sendMessage(event)">
-            <textarea id="messageText">
-{
-  "dateTime": null,
-  "id": "tester",
-  "displayName": "テスター",
-  "nickname": null,
-  "content": "",
-  "isFirst": false,
-  "isFirstOnStream": false,
-  "additionalRequests": null
-}
+            <textarea id="messageText" rows="16" cols="96">
+"""
+html += chat_template
+html += """
             </textarea>
             <button>Send</button>
         </form>
         <ul id='messages'>
         </ul>
         <script>
-            var client_id = Date.now()
+            const client_id = Date.now()
             document.querySelector("#ws-id").textContent = client_id;
-            var ws = new WebSocket(`ws://localhost:8000/chat/${client_id}`);
+            const ws = new WebSocket(`ws://localhost:8000/chat/${client_id}`);
             ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
+                const messages = document.getElementById('messages')
+                const message = document.createElement('li')
+                const json = JSON.parse(event.data)
+                const content = document.createTextNode(json.id + ": " + json.response)
                 message.appendChild(content)
                 messages.appendChild(message)
             };
             function sendMessage(event) {
-                var input = document.getElementById("messageText")
+                const input = document.getElementById("messageText")
                 ws.send(input.value)
                 event.preventDefault()
             }
