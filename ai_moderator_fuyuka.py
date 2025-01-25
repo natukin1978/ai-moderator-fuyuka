@@ -18,6 +18,7 @@ g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
 
 g.config = readConfig()
 
+fuyuka_port = g.config["fuyukaApi"]["port"]
 
 genai_chat = GenAIChat()
 genai_chat.load_chat_history()
@@ -99,12 +100,14 @@ html = f"""
         <ul id='messages'>
         </ul>
         <script>
+            const fuyuka_port = {fuyuka_port}
             const client_id = Date.now()
             document.querySelector("#ws-id").textContent = client_id;
-            const ws = new WebSocket(`ws://localhost:8000/chat/${client_id}`);
-                const messages = document.getElementById('messages')
-                const message = document.createElement('li')
+            const chat_endpoint = `ws://localhost:${{fuyuka_port}}/chat/${{client_id}}`
+            const ws = new WebSocket(chat_endpoint);
             ws.onmessage = function(event) {{
+                const messages = document.getElementById("messages")
+                const message = document.createElement("li")
                 const json = JSON.parse(event.data)
                 const content = document.createTextNode(json.id + ": " + json.response)
                 message.appendChild(content)
@@ -170,4 +173,4 @@ async def reset_chat() -> Result:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=fuyuka_port)
