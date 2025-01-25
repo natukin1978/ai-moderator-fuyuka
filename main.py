@@ -127,7 +127,7 @@ async def chat_test() -> str:
     return HTMLResponse(html)
 
 
-@app.get("/chat/{id}")
+@app.post("/chat/{id}")
 async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
     response_text = genai_chat.send_message_by_json(json_data)
