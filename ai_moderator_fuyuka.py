@@ -1,6 +1,7 @@
 import datetime
 import json
 
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -168,3 +169,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 async def reset_chat() -> Result:
     genai_chat.reset_chat_history()
     return {"result": True}
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
