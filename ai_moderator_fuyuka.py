@@ -81,7 +81,7 @@ class Result(BaseModel):
 
 chat_template = json.dumps(jsonable_encoder(ChatModel()), indent=2, ensure_ascii=False)
 
-html = """
+html = f"""
 <!DOCTYPE html>
 <html>
     <head>
@@ -92,9 +92,7 @@ html = """
         <h2>Your ID: <span id="ws-id"></span></h2>
         <form action="" onsubmit="sendMessage(event)">
             <textarea id="messageText" rows="16" cols="96">
-"""
-html += chat_template
-html += """
+{chat_template}
             </textarea>
             <button>Send</button>
         </form>
@@ -104,19 +102,19 @@ html += """
             const client_id = Date.now()
             document.querySelector("#ws-id").textContent = client_id;
             const ws = new WebSocket(`ws://localhost:8000/chat/${client_id}`);
-            ws.onmessage = function(event) {
                 const messages = document.getElementById('messages')
                 const message = document.createElement('li')
+            ws.onmessage = function(event) {{
                 const json = JSON.parse(event.data)
                 const content = document.createTextNode(json.id + ": " + json.response)
                 message.appendChild(content)
                 messages.prepend(message)
-            };
-            function sendMessage(event) {
+            }};
+            function sendMessage(event) {{
                 const input = document.getElementById("messageText")
                 ws.send(input.value)
                 event.preventDefault()
-            }
+            }}
         </script>
     </body>
 </html>
