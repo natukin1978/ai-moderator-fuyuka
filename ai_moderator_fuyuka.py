@@ -169,7 +169,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 @app.get("/reset_chat")
 async def reset_chat() -> Result:
     genai_chat.reset_chat_history()
-    return {"result": True}
+    return JSONResponse({"result": True})
 
 
 if __name__ == "__main__":
