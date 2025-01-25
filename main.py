@@ -109,7 +109,7 @@ html += """
                 const json = JSON.parse(event.data)
                 const content = document.createTextNode(json.id + ": " + json.response)
                 message.appendChild(content)
-                messages.appendChild(message)
+                messages.prepend(message)
             };
             function sendMessage(event) {
                 const input = document.getElementById("messageText")
