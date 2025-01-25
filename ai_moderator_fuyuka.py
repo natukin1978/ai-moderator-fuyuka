@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -19,6 +20,11 @@ g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
 g.config = readConfig()
 
 fuyuka_port = g.config["fuyukaApi"]["port"]
+
+# ロガーの設定
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 genai_chat = GenAIChat()
 genai_chat.load_chat_history()
@@ -161,9 +167,9 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{id} left the chat")
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
     finally:
-        print("Client disconnected")
+        logger.error("Client disconnected")
 
 
 @app.get("/reset_chat")

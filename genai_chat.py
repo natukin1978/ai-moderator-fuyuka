@@ -1,5 +1,5 @@
-import datetime
 import json
+import logging
 import os
 import pickle
 
@@ -12,6 +12,8 @@ from google.generativeai.types import (
 
 import global_value as g
 from cache_helper import get_cache_filepath
+
+logger = logging.getLogger(__name__)
 
 
 class GenAIChat:
@@ -64,20 +66,20 @@ class GenAIChat:
 
     def send_message(self, message: str) -> str:
         try:
-            print(message)
+            logger.debug(message)
             response = self.get_chat().send_message(message)
             response_text = response.text.rstrip()
-            print(response_text)
+            logger.debug(response_text)
             self.save_chat_history()
             return response_text
         except StopCandidateException as e:
-            print(e)
+            logger.error(e)
             return g.STOP_CANDIDATE_MESSAGE
         except IndexError as e:
-            print(e)
+            logger.error(e)
             return ""
         except Exception as e:
-            print(e)
+            logger.error(e)
             return g.ERROR_MESSAGE
 
     def send_message_by_json(self, json_data: dict[str, any]) -> str:
