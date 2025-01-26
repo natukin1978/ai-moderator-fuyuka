@@ -9,6 +9,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 import global_value as g
+
+g.app_name = "ai_moderator_fuyuka"
+
 from config_helper import readConfig
 from genai_chat import GenAIChat
 from text_helper import readText

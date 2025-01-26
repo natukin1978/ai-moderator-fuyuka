@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class GenAIChat:
-    FILENAME_CHAT_HISTORY = get_cache_filepath(
-        "ai_moderator_fuyuka_gen_ai_chat_history.pkl"
-    )
+    FILENAME_CHAT_HISTORY = get_cache_filepath(f"{g.app_name}_gen_ai_chat_history.pkl")
 
     GENAI_SAFETY_SETTINGS = {
         # ハラスメントは中程度を許容する
