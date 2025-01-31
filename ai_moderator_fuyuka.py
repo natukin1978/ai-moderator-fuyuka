@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -33,9 +34,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 genai_chat = GenAIChat()
-genai_chat.load_chat_history()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
+    genai_chat.load_chat_history()
+    yield
+    # shutdown
+    pass
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 class ConnectionManager:
