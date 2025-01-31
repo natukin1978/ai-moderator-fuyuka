@@ -135,23 +135,26 @@ html = f"""
 </html>
 """
 
-def flow_story_genai_chat() -> None:
+
+def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
     if not g.story_buffer:
         return
 
     json_data = {
-      "displayName": g.storyteller,
-      "content": g.story_buffer,
-      "additionalRequests": "You don't reply.",
+        "displayName": g.storyteller,
+        "content": g.story_buffer,
+        "additionalRequests": "You don't reply.",
     }
     g.story_buffer = ""
     genai_chat.send_message_by_json(json_data)
 
-def _flow_story(json_data: dict[str, any]) -> None:
+
+def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
     g.storyteller = json_data["displayName"]
     g.story_buffer += json_data["content"] + " "
     if len(g.story_buffer) > 1000:
-        flow_story_genai_chat()
+        flow_story_genai_chat(genai_chat)
+
 
 @app.get("/")
 async def chat_test() -> str:
@@ -161,7 +164,7 @@ async def chat_test() -> str:
 @app.post("/chat/{id}")
 async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
-    flow_story_genai_chat()
+    flow_story_genai_chat(genai_chat)
     response_text = genai_chat.send_message_by_json(json_data)
     response_json = {
         "id": id,
@@ -178,7 +181,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
-            flow_story_genai_chat()
+            flow_story_genai_chat(genai_chat)
             response_text = genai_chat.send_message_by_json(json_data)
             if not response_text:
                 continue
@@ -196,10 +199,12 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     finally:
         logger.error("Client disconnected")
 
+
 @app.post("/flow_story")
 def flow_story_endpoint(chat: ChatModel) -> None:
     json_data = jsonable_encoder(chat)
-    _flow_story(json_data)
+    _flow_story(genai_chat, json_data)
+
 
 @app.websocket("/flow_story")
 async def flow_story_ws(websocket: WebSocket) -> None:
@@ -207,9 +212,10 @@ async def flow_story_ws(websocket: WebSocket) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
-            _flow_story(json_data)
+            _flow_story(genai_chat, json_data)
     except Exception as e:
         logger.error(f"Error: {e}")
+
 
 @app.get("/reset_chat")
 async def reset_chat() -> Result:
