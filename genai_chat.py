@@ -12,6 +12,7 @@ from google.generativeai.types import (
 
 import global_value as g
 from cache_helper import get_cache_filepath
+from genai_history import GenAIHistory
 
 logger = logging.getLogger(__name__)
 
@@ -31,36 +32,51 @@ class GenAIChat:
     }
 
     def __init__(self):
-        conf_g = g.config["google"]
-        genai.configure(api_key=conf_g["geminiApiKey"])
-        self.genaiModel = genai.GenerativeModel(
-            model_name=conf_g["modelName"],
-            safety_settings=self.GENAI_SAFETY_SETTINGS,
-            system_instruction=g.BASE_PROMPT,
-        )
-        self.chat_history = []
-        self.genaiChat = None
+        self.reset_chat_history()
+
+    def get_chat_history(self) -> GenAIHistory:
+        if not self.chat_history:
+            conf_g = g.config["google"]
+            self.chat_history = GenAIHistory(
+                conf_g["geminiApiKey"], conf_g["modelName"]
+            )
+        return self.chat_history
+
+    def get_genaiModel(self):
+        if not self.genaiModel:
+            chat_history = self.get_chat_history()
+            genai.configure(api_key=chat_history.api_key)
+            self.genaiModel = genai.GenerativeModel(
+                model_name=chat_history.model_name,
+                safety_settings=self.GENAI_SAFETY_SETTINGS,
+                system_instruction=g.BASE_PROMPT,
+            )
+        return self.genaiModel
 
     def get_chat(self) -> genai.ChatSession:
         if not self.genaiChat:
-            self.genaiChat = self.genaiModel.start_chat(history=self.chat_history)
+            self.genaiChat = self.get_genaiModel().start_chat(
+                history=self.get_chat_history().data
+            )
         return self.genaiChat
 
     def reset_chat_history(self) -> None:
-        self.chat_history = []
+        self.genaiModel = None
+        self.chat_history = None
         self.genaiChat = None
 
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_CHAT_HISTORY):
             return False
         with open(self.FILENAME_CHAT_HISTORY, "rb") as f:
+            self.reset_chat_history()
             self.chat_history = pickle.load(f)
-            self.genaiChat = None
             return True
 
     def save_chat_history(self) -> None:
         with open(self.FILENAME_CHAT_HISTORY, "wb") as f:
-            pickle.dump(self.get_chat().history, f)
+            self.chat_history.data = self.get_chat().history
+            pickle.dump(self.chat_history, f)
 
     def send_message(self, message: str) -> str:
         try:
