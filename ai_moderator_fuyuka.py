@@ -39,10 +39,10 @@ genai_chat = GenAIChat()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    genai_chat.load_chat_history()
+    logger.info("Startup")
     yield
     # shutdown
-    pass
+    logger.info("Shutdown")
 
 
 app = FastAPI(lifespan=lifespan)
