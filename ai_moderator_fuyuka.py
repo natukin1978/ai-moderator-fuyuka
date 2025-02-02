@@ -153,7 +153,7 @@ def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
     json_data = {
         "displayName": g.storyteller,
         "content": g.story_buffer,
-        "additionalRequests": "You don't reply.",
+        "additionalRequests": "You don't reply. The information contains mistranslations because it was imported using voice recognition.",
     }
     g.story_buffer = ""
     genai_chat.send_message_by_json(json_data)
