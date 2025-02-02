@@ -131,7 +131,7 @@ html = f"""
                 const messages = document.getElementById("messages")
                 const message = document.createElement("li")
                 const json = JSON.parse(event.data)
-                const content = document.createTextNode(json.id + ": " + json.response)
+                const content = document.createTextNode(`${{json.id}}: ${{json.response}}`)
                 message.appendChild(content)
                 messages.prepend(message)
             }};
