@@ -234,5 +234,11 @@ async def reset_chat() -> Result:
     return JSONResponse({"result": True})
 
 
+@app.get("/restore")
+async def restore() -> Result:
+    genai_chat.load_chat_history()
+    return JSONResponse({"result": True})
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=fuyuka_port)
