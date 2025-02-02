@@ -42,7 +42,7 @@ class GenAIChat:
             )
         return self.chat_history
 
-    def get_genai_model(self):
+    def get_genai_model(self) -> genai.GenerativeModel:
         if not self.genai_model:
             chat_history = self.get_chat_history()
             genai.configure(api_key=chat_history.api_key)
@@ -54,16 +54,16 @@ class GenAIChat:
         return self.genai_model
 
     def get_chat(self) -> genai.ChatSession:
-        if not self.genaiChat:
-            self.genaiChat = self.get_genai_model().start_chat(
+        if not self.genai_chat:
+            self.genai_chat = self.get_genai_model().start_chat(
                 history=self.get_chat_history().data
             )
-        return self.genaiChat
+        return self.genai_chat
 
     def reset_chat_history(self) -> None:
         self.genai_model = None
         self.chat_history = None
-        self.genaiChat = None
+        self.genai_chat = None
 
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_CHAT_HISTORY):
