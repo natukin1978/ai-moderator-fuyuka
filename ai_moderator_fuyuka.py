@@ -40,14 +40,12 @@ genai_chat = GenAIChat()
 if is_continue and genai_chat.load_chat_history():
     print("会話履歴を復元しました。")
 
-# この関数を呼ぶ事で各種情報を初期化できる
-genai_chat.get_chat()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
     logger.info("Startup")
+    # この関数を呼ぶ事で各種情報を初期化できる
+    genai_chat.get_chat()
     yield
     # shutdown
     logger.info("Shutdown")
@@ -199,6 +197,13 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
+
+            type = json_data["type"]
+            del json_data["type"]  # この情報はAIに渡さずに削除
+            if "flow_story" == type:
+                _flow_story(genai_chat, json_data)
+                continue
+
             flow_story_genai_chat(genai_chat)
             response_text = genai_chat.send_message_by_json(json_data)
             if not response_text:
@@ -222,17 +227,6 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 def flow_story_endpoint(chat: ChatModel) -> None:
     json_data = jsonable_encoder(chat)
     _flow_story(genai_chat, json_data)
-
-
-@app.websocket("/flow_story")
-async def flow_story_ws(websocket: WebSocket) -> None:
-    await websocket.accept()
-    try:
-        while True:
-            json_data = await websocket.receive_json()
-            _flow_story(genai_chat, json_data)
-    except Exception as e:
-        logger.error(f"Error: {e}")
 
 
 @app.get("/reset_chat")
