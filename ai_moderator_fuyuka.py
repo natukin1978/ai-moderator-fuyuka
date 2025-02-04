@@ -17,6 +17,9 @@ from config_helper import readConfig
 from genai_chat import GenAIChat
 from text_helper import readText
 
+print("前回の続きですか？(y/n) ", end="")
+is_continue = input() == "y"
+
 g.BASE_PROMPT = readText("prompts/base_prompt.txt")
 g.ERROR_MESSAGE = readText("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
@@ -34,6 +37,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 genai_chat = GenAIChat()
+if is_continue and genai_chat.load_chat_history():
+    print("会話履歴を復元しました。")
+
+# この関数を呼ぶ事で各種情報を初期化できる
+genai_chat.get_chat()
 
 
 @asynccontextmanager
