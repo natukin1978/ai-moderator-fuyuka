@@ -22,6 +22,9 @@ g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
 
 g.config = readConfig()
 
+g.storyteller = ""
+g.story_buffer = ""
+
 fuyuka_port = g.config["fuyukaApi"]["port"]
 
 # ロガーの設定
@@ -119,7 +122,7 @@ html = f"""
                 const messages = document.getElementById("messages")
                 const message = document.createElement("li")
                 const json = JSON.parse(event.data)
-                const content = document.createTextNode(json.id + ": " + json.response)
+                const content = document.createTextNode(`${{json.id}}: ${{json.response}}`)
                 message.appendChild(content)
                 messages.prepend(message)
             }};
@@ -134,6 +137,27 @@ html = f"""
 """
 
 
+def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
+    if not g.story_buffer:
+        return
+
+    json_data = {
+        "displayName": g.storyteller,
+        "content": g.story_buffer,
+        "noisy": True,
+        "additionalRequests": "You don't reply.",
+    }
+    g.story_buffer = ""
+    genai_chat.send_message_by_json(json_data)
+
+
+def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
+    g.storyteller = json_data["displayName"]
+    g.story_buffer += json_data["content"] + " "
+    if len(g.story_buffer) > 1000:
+        flow_story_genai_chat(genai_chat)
+
+
 @app.get("/")
 async def chat_test() -> str:
     return HTMLResponse(html)
@@ -142,7 +166,13 @@ async def chat_test() -> str:
 @app.post("/chat/{id}")
 async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
-    response_text = genai_chat.send_message_by_json(json_data)
+    response_text = ""
+    if "noisy" in json_data and json_data["noisy"]:
+        _flow_story(genai_chat, json_data)
+    else:
+        flow_story_genai_chat(genai_chat)
+        response_text = genai_chat.send_message_by_json(json_data)
+
     response_json = {
         "id": id,
         "request": json_data,
@@ -158,6 +188,11 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
+            if "noisy" in json_data and json_data["noisy"]:
+                _flow_story(genai_chat, json_data)
+                continue
+
+            flow_story_genai_chat(genai_chat)
             response_text = genai_chat.send_message_by_json(json_data)
             if not response_text:
                 continue
@@ -178,6 +213,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 
 @app.get("/reset_chat")
 async def reset_chat() -> Result:
+    g.story_buffer = ""
     genai_chat.reset_chat_history()
     return JSONResponse({"result": True})
 
