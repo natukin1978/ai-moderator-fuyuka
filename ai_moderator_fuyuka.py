@@ -76,6 +76,7 @@ class ChatModel(BaseModel):
     content: str = "おはようございます。今日もよろしくお願いします。"
     isFirst: bool = False
     isFirstOnStream: bool = False
+    noisy: bool = False
     additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
 
 
