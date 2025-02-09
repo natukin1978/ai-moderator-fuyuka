@@ -147,8 +147,8 @@ def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
         "noisy": True,
         "additionalRequests": "You don't reply.",
     }
-    g.story_buffer = ""
     genai_chat.send_message_by_json(json_data)
+    g.story_buffer = ""
 
 
 def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
