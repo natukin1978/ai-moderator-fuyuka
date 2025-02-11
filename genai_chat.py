@@ -82,5 +82,5 @@ class GenAIChat:
             return g.ERROR_MESSAGE
 
     async def send_message_by_json(self, json_data: dict[str, any]) -> str:
-        json_str = json.dumps(json_data, ensure_ascii=False, separators=(',', ':'))
+        json_str = json.dumps(json_data, ensure_ascii=False, separators=(",", ":"))
         return await self.send_message(json_str)

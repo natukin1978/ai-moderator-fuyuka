@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import json
 import logging
@@ -140,25 +139,34 @@ html = f"""
 """
 
 
-async def flow_story_genai_chat() -> None:
+async def flow_story_genai_chat() -> str:
     if not g.story_buffer:
         return
 
+    localtime = datetime.datetime.now()
+    localtime_iso_8601 = localtime.isoformat()
     json_data = {
+        "dateTime": localtime_iso_8601,
+        "id": None,
         "displayName": g.storyteller,
         "content": g.story_buffer.rstrip(),
+        "isFirst": False,
+        "isFirstOnStream": False,
         "noisy": True,
         "additionalRequests": "You don't reply.",
     }
-    await genai_chat.send_message_by_json(json_data)
+    response_text = await genai_chat.send_message_by_json(json_data)
     g.story_buffer = ""
+    return response_text
 
 
-async def _flow_story(json_data: dict[str, any]) -> None:
+async def _flow_story(json_data: dict[str, any]) -> str:
     g.storyteller = json_data["displayName"]
     g.story_buffer += json_data["content"] + " "
-    if len(g.story_buffer) > 1000:
-        await flow_story_genai_chat()
+    if len(g.story_buffer) <= 1000:
+        return ""
+    response_text = await flow_story_genai_chat()
+    return response_text
 
 
 app = FastAPI()
@@ -169,23 +177,23 @@ async def chat_test() -> str:
     return HTMLResponse(html)
 
 
-@app.post("/chat/{id}")
-async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
-    json_data = jsonable_encoder(chat)
-    response_text = ""
-    if "noisy" in json_data and json_data["noisy"]:
-        await _flow_story(json_data)
-    else:
-        await flow_story_genai_chat()
-        response_text = await genai_chat.send_message_by_json(json_data)
-
-    response_json = {
-        "id": id,
-        "request": json_data,
-        "response": response_text,
-    }
-    await manager.broadcast_json(response_json)
-    return JSONResponse(response_json)
+#@app.post("/chat/{id}")
+#async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
+#    json_data = jsonable_encoder(chat)
+#    response_text = ""
+#    if "noisy" in json_data and json_data["noisy"]:
+#        await _flow_story(json_data)
+#    else:
+#        await flow_story_genai_chat()
+#        response_text = await genai_chat.send_message_by_json(json_data)
+#
+#    response_json = {
+#        "id": id,
+#        "request": json_data,
+#        "response": response_text,
+#    }
+#    await manager.broadcast_json(response_json)
+#    return JSONResponse(response_json)
 
 
 @app.websocket("/chat/{id}")
@@ -194,16 +202,17 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
+
+            if "content" not in json_data or not json_data["content"]:
+                # 例外: contentが無効な場合、flow_storyの終端として処理する
+                response_text = await flow_story_genai_chat()
+                continue
             if "noisy" in json_data and json_data["noisy"]:
-                await _flow_story(json_data)
+                # 例外: noisyの場合、flow_storyとしてバッファにためておく
+                response_text = await _flow_story(json_data)
                 continue
 
-            async with asyncio.TaskGroup() as tg:
-                task1 = tg.create_task(flow_story_genai_chat())
-                task2 = tg.create_task(genai_chat.send_message_by_json(json_data))
-
-            # task1の結果はいらない
-            response_text = task2.result()
+            response_text = await genai_chat.send_message_by_json(json_data)
             if not response_text:
                 continue
             response_json = {
