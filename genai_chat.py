@@ -38,7 +38,7 @@ class GenAIChat:
             safety_settings=self.GENAI_SAFETY_SETTINGS,
             system_instruction=g.BASE_PROMPT,
         )
-        self.chat_history = []
+        self.chat_history = None
         self.genaiChat = None
 
     def get_chat(self) -> genai.ChatSession:
@@ -47,7 +47,7 @@ class GenAIChat:
         return self.genaiChat
 
     def reset_chat_history(self) -> None:
-        self.chat_history = []
+        self.chat_history = None
         self.genaiChat = None
 
     def load_chat_history(self) -> bool:
@@ -62,10 +62,11 @@ class GenAIChat:
         with open(self.FILENAME_CHAT_HISTORY, "wb") as f:
             pickle.dump(self.get_chat().history, f)
 
-    def send_message(self, message: str) -> str:
+    async def send_message(self, message: str) -> str:
         try:
             logger.debug(message)
-            response = self.get_chat().send_message(message)
+            chat_session = self.get_chat()
+            response = await chat_session.send_message_async(message)
             response_text = response.text.rstrip()
             logger.debug(response_text)
             self.save_chat_history()
@@ -80,6 +81,6 @@ class GenAIChat:
             logger.error(e)
             return g.ERROR_MESSAGE
 
-    def send_message_by_json(self, json_data: dict[str, any]) -> str:
-        json_str = json.dumps(json_data, ensure_ascii=False)
-        return self.send_message(json_str)
+    async def send_message_by_json(self, json_data: dict[str, any]) -> str:
+        json_str = json.dumps(json_data, ensure_ascii=False, separators=(',', ':'))
+        return await self.send_message(json_str)

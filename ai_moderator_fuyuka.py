@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -141,25 +142,25 @@ html = f"""
 """
 
 
-def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
+async def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
     if not g.story_buffer:
         return
 
     json_data = {
         "displayName": g.storyteller,
-        "content": g.story_buffer,
+        "content": g.story_buffer.rstrip(),
         "noisy": True,
         "additionalRequests": "You don't reply.",
     }
-    genai_chat.send_message_by_json(json_data)
+    await genai_chat.send_message_by_json(json_data)
     g.story_buffer = ""
 
 
-def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
+async def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
     g.storyteller = json_data["displayName"]
     g.story_buffer += json_data["content"] + " "
     if len(g.story_buffer) > 1000:
-        flow_story_genai_chat(genai_chat)
+        await flow_story_genai_chat(genai_chat)
 
 
 @app.get("/")
@@ -172,10 +173,10 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
     response_text = ""
     if "noisy" in json_data and json_data["noisy"]:
-        _flow_story(genai_chat, json_data)
+        await _flow_story(genai_chat, json_data)
     else:
-        flow_story_genai_chat(genai_chat)
-        response_text = genai_chat.send_message_by_json(json_data)
+        await flow_story_genai_chat(genai_chat)
+        response_text = await genai_chat.send_message_by_json(json_data)
 
     response_json = {
         "id": id,
@@ -193,11 +194,15 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
         while True:
             json_data = await websocket.receive_json()
             if "noisy" in json_data and json_data["noisy"]:
-                _flow_story(genai_chat, json_data)
+                await _flow_story(genai_chat, json_data)
                 continue
 
-            flow_story_genai_chat(genai_chat)
-            response_text = genai_chat.send_message_by_json(json_data)
+            async with asyncio.TaskGroup() as tg:
+                task1 = tg.create_task(flow_story_genai_chat(genai_chat))
+                task2 = tg.create_task(genai_chat.send_message_by_json(json_data))
+
+            # task1の結果はいらない
+            response_text = task2.result()
             if not response_text:
                 continue
             response_json = {
