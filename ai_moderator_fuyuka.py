@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -16,11 +17,17 @@ from config_helper import readConfig
 from genai_chat import GenAIChat
 from text_helper import readText
 
+print("前回の続きですか？(y/n) ", end="")
+is_continue = input() == "y"
+
 g.BASE_PROMPT = readText("prompts/base_prompt.txt")
 g.ERROR_MESSAGE = readText("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
 
 g.config = readConfig()
+
+g.storyteller = ""
+g.story_buffer = ""
 
 fuyuka_port = g.config["fuyukaApi"]["port"]
 
@@ -30,9 +37,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 genai_chat = GenAIChat()
-genai_chat.load_chat_history()
-
-app = FastAPI()
+if is_continue and genai_chat.load_chat_history():
+    print("会話履歴を復元しました。")
 
 
 class ConnectionManager:
@@ -76,6 +82,7 @@ class ChatModel(BaseModel):
     content: str = "おはようございます。今日もよろしくお願いします。"
     isFirst: bool = False
     isFirstOnStream: bool = False
+    noisy: bool = False
     additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
 
 
@@ -118,7 +125,7 @@ html = f"""
                 const messages = document.getElementById("messages")
                 const message = document.createElement("li")
                 const json = JSON.parse(event.data)
-                const content = document.createTextNode(json.id + ": " + json.response)
+                const content = document.createTextNode(`${{json.id}}: ${{json.response}}`)
                 message.appendChild(content)
                 messages.prepend(message)
             }};
@@ -133,6 +140,39 @@ html = f"""
 """
 
 
+async def flow_story_genai_chat() -> str:
+    if not g.story_buffer:
+        return
+
+    localtime = datetime.datetime.now()
+    localtime_iso_8601 = localtime.isoformat()
+    json_data = {
+        "dateTime": localtime_iso_8601,
+        "id": None,
+        "displayName": g.storyteller,
+        "content": g.story_buffer.rstrip(),
+        "isFirst": False,
+        "isFirstOnStream": False,
+        "noisy": True,
+        "additionalRequests": "You understand the flow of the story. reply OK.",
+    }
+    response_text = await genai_chat.send_message_by_json(json_data)
+    g.story_buffer = ""
+    return response_text
+
+
+async def _flow_story(json_data: dict[str, any]) -> str:
+    g.storyteller = json_data["displayName"]
+    g.story_buffer += json_data["content"] + " "
+    if len(g.story_buffer) <= 1000:
+        return ""
+    response_text = await flow_story_genai_chat()
+    return response_text
+
+
+app = FastAPI()
+
+
 @app.get("/")
 async def chat_test() -> str:
     return HTMLResponse(html)
@@ -141,7 +181,13 @@ async def chat_test() -> str:
 @app.post("/chat/{id}")
 async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
-    response_text = genai_chat.send_message_by_json(json_data)
+    response_text = ""
+    if "noisy" in json_data and json_data["noisy"]:
+        response_text = await _flow_story(json_data)
+    else:
+        await flow_story_genai_chat()
+        response_text = await genai_chat.send_message_by_json(json_data)
+
     response_json = {
         "id": id,
         "request": json_data,
@@ -157,7 +203,13 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
-            response_text = genai_chat.send_message_by_json(json_data)
+            if "noisy" in json_data and json_data["noisy"]:
+                # 例外: noisyの場合、flow_storyとしてバッファにためておく
+                asyncio.create_task(_flow_story(json_data))
+                continue
+
+            await flow_story_genai_chat()
+            response_text = await genai_chat.send_message_by_json(json_data)
             if not response_text:
                 continue
             response_json = {
@@ -177,6 +229,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 
 @app.get("/reset_chat")
 async def reset_chat() -> Result:
+    g.story_buffer = ""
     genai_chat.reset_chat_history()
     return JSONResponse({"result": True})
 
