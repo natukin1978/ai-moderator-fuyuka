@@ -40,8 +40,6 @@ genai_chat = GenAIChat()
 if is_continue and genai_chat.load_chat_history():
     print("会話履歴を復元しました。")
 
-app = FastAPI()
-
 
 class ConnectionManager:
     def __init__(self):
@@ -142,7 +140,7 @@ html = f"""
 """
 
 
-async def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
+async def flow_story_genai_chat() -> None:
     if not g.story_buffer:
         return
 
@@ -156,11 +154,14 @@ async def flow_story_genai_chat(genai_chat: GenAIChat) -> None:
     g.story_buffer = ""
 
 
-async def _flow_story(genai_chat: GenAIChat, json_data: dict[str, any]) -> None:
+async def _flow_story(json_data: dict[str, any]) -> None:
     g.storyteller = json_data["displayName"]
     g.story_buffer += json_data["content"] + " "
     if len(g.story_buffer) > 1000:
-        await flow_story_genai_chat(genai_chat)
+        await flow_story_genai_chat()
+
+
+app = FastAPI()
 
 
 @app.get("/")
@@ -173,9 +174,9 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
     response_text = ""
     if "noisy" in json_data and json_data["noisy"]:
-        await _flow_story(genai_chat, json_data)
+        await _flow_story(json_data)
     else:
-        await flow_story_genai_chat(genai_chat)
+        await flow_story_genai_chat()
         response_text = await genai_chat.send_message_by_json(json_data)
 
     response_json = {
@@ -194,11 +195,11 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
         while True:
             json_data = await websocket.receive_json()
             if "noisy" in json_data and json_data["noisy"]:
-                await _flow_story(genai_chat, json_data)
+                await _flow_story(json_data)
                 continue
 
             async with asyncio.TaskGroup() as tg:
-                task1 = tg.create_task(flow_story_genai_chat(genai_chat))
+                task1 = tg.create_task(flow_story_genai_chat())
                 task2 = tg.create_task(genai_chat.send_message_by_json(json_data))
 
             # task1の結果はいらない
