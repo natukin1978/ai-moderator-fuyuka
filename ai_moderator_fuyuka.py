@@ -153,7 +153,7 @@ async def flow_story_genai_chat() -> str:
         "isFirst": False,
         "isFirstOnStream": False,
         "noisy": True,
-        "additionalRequests": "You don't reply.",
+        "additionalRequests": "You understand the flow of the story. reply OK.",
     }
     response_text = await genai_chat.send_message_by_json(json_data)
     g.story_buffer = ""
