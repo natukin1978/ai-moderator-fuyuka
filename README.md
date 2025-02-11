@@ -2,6 +2,8 @@
 
 <img src="./images/portrait.png" width="33%"> <img src="./images/fullbody.png" width="33%">
 
+※ 画像はキャライメージです。アバターは配布しておりません。
+
 ## 概要
 
 このプロジェクトは、YoutubeやTwitchなどの配信チャットに入力されたコメントに返信する用途で作られたAPIです。
@@ -47,7 +49,7 @@ AIという、少しばかり気まぐれな性質があるものを使うため
 
 ## 使用方法
 
-1. 各種アカウントの作成
+1. アカウントの作成
 2. Pythonのインストール
 3. ソースコード取得
 4. 依存ライブラリのインストール
@@ -58,7 +60,11 @@ AIという、少しばかり気まぐれな性質があるものを使うため
 
 ### 1. アカウントの作成
 
-- Google Gemini
+- Google Gemini API キー
+
+https://ai.google.dev/gemini-api
+
+※ 分からない場合、`gemini api キー 取得 方法`などでWeb検索してください
 
 ### 2. Pythonのインストール
 
@@ -138,11 +144,15 @@ python ai_moderator_fuyuka.py
 
 チャット動作テスト画面
 
+```
 http://localhost:38321
+```
 
 Web API 確認
 
+```
 http://localhost:38321/docs
+```
 
 ## 貢献する
 
@@ -154,9 +164,8 @@ http://localhost:38321/docs
 
 ナツキソ
 
-- Twitter: [@natukin1978](https://twitter.com/natukin1978)
+- X(旧Twitter): [@natukin1978](https://x.com/natukin1978)
 - Mastodon: [@natukin1978](https://mstdn.jp/@natukin1978)
-- Bluesky: [@natukin1978](https://bsky.app/profile/natukin1978.bsky.social)
 - Threads: [@natukin1978](https://www.threads.net/@natukin1978)
 - GitHub: [@natukin1978](https://github.com/natukin1978)
 - Mail: natukin1978@hotmail.com
