@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import json
 import logging
+import os
+import sys
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -12,6 +14,7 @@ from pydantic import BaseModel
 import global_value as g
 
 g.app_name = "ai_moderator_fuyuka"
+g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 from config_helper import readConfig
 from genai_chat import GenAIChat
