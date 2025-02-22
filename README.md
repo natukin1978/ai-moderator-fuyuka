@@ -50,11 +50,8 @@ AIという、少しばかり気まぐれな性質があるものを使うため
 ## 使用方法
 
 1. アカウントの作成
-2. Pythonのインストール
-3. ソースコード取得
-4. 依存ライブラリのインストール
-5. 設定
-6. 実行
+2. 設定
+3. 実行
 
 詳しい手順は以下の通りです:
 
@@ -66,46 +63,23 @@ https://ai.google.dev/gemini-api
 
 ※ 分からない場合、`gemini api キー 取得 方法`などでWeb検索してください
 
-### 2. Pythonのインストール
+### 2. 設定
 
-Python 3.10以降のバージョンをインストールしてください。
+※ JSONファイルを編集する場合、JSON形式をサポートしているテキストエディタの使用を推奨します。
 
-### 3. ソースコード取得
+#### config.json
 
-任意の場所に取得します。
+必須
 
-取得例
-```
-git clone https://github.com/natukin1978/ai-moderator-fuyuka.git
-```
-※ 要 git
+| キー                | 概要                   |
+|---------------------|------------------------|
+| fuyukaApi.port      | 待ち受けポート番号     |
+| google.geminiApiKey | Google Gemini API Key  |
+| google.modelName    | Google Gemini モデル名 |
 
-### 4. 依存ライブラリのインストール
+#### prompts/base_prompt.txt
 
-ライブラリをPipでインストールします。
-```
-pip install -r requirements.txt
-```
-
-※ ライブラリインストール前に`venv`で仮想環境を作成する事をオススメします。
-
-### 5. 設定
-
-#### 基本設定
-
-`config.json.template`を`config.json`にコピーもしくはリネームして設定変更を行います。
-
-必須項目
-
-|キー|内容|
-|-|-|
-|fuyukaApi/port|待ち受けポート番号|
-|google/geminiApiKey|Google Gemini API Key|
-|google/modelName|Google Gemini モデル名|
-
-#### AI人格設定
-
-`prompts/base_prompt.txt.template`を`prompts/base_prompt.txt`にコピーもしくはリネームして設定変更を行います。
+AI人格設定
 
 変更する箇所は以下の２箇所です。
 他の箇所を変更することはあまりオススメしません。
@@ -135,11 +109,11 @@ pip install -r requirements.txt
 ネガティブな事に関して、視聴者を楽しませるためであれば、多少の嘘を交えてポジティブな内容に変える事もあります。
 ```
 
-### 6. 実行
+### 3. 実行
 
 実行するには以下のコマンドを実行します。
 ```
-python ai_moderator_fuyuka.py
+AiModeratorFuyuka.exe
 ```
 
 チャット動作テスト画面
