@@ -26,8 +26,16 @@ jobs:
       - name: Build executable with PyInstaller
         run: pyinstaller --onefile ai_moderator_fuyuka.py --name AiModeratorFuyuka.exe
 
-      - name: Create config.json
-        run: copy config.json.template config.json
+      - name: Rename config.json
+        run: ren config.json.template config.json
+
+      - name: Rename messages
+        run: |
+          ren messages\error_message.txt.template messages\error_message.txt
+          ren messages\stop_candidate_message.txt.template messages\stop_candidate_message.txt
+
+      - name: Rename prompts
+        run: ren prompts\base_prompt.txt.template prompts\base_prompt.txt
 
       - name: Create release archive
         run: |
