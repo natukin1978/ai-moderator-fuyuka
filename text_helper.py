@@ -1,9 +1,10 @@
 import os
 
+import global_value as g
+
 
 def readText(name: str):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, name)
+    file_path = os.path.join(g.base_dir, name)
     if not os.path.isfile(file_path):
         # 無いならひな形を参照
         file_path += ".template"
