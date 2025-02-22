@@ -31,8 +31,8 @@ jobs:
 
       - name: Rename messages
         run: |
-          ren messages\error_message.txt.template messages\error_message.txt
-          ren messages\stop_candidate_message.txt.template messages\stop_candidate_message.txt
+          ren messages\error_message.txt.template error_message.txt
+          ren messages\stop_candidate_message.txt.template stop_candidate_message.txt
 
       - name: Rename prompts
         run: ren prompts\base_prompt.txt.template prompts\base_prompt.txt
