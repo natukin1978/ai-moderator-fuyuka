@@ -24,7 +24,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile ai_moderator_fuyuka.py --name AiModeratorFuyuka.exe
+        run: pyinstaller ai_moderator_fuyuka.py --name AiModeratorFuyuka.exe
 
       - name: Rename config.json
         run: ren config.json.template config.json
@@ -41,7 +41,7 @@ jobs:
         run: |
           $tagName = "${{ github.ref_name }}"
           $zipName = "AiModeratorFuyuka-$tagName.zip"
-          Compress-Archive -Path dist\AiModeratorFuyuka.exe, LICENSE, README.md, config.json, images, messages, prompts -DestinationPath $zipName
+          Compress-Archive -Path dist\AiModeratorFuyuka.exe\AiModeratorFuyuka.exe, dist\AiModeratorFuyuka.exe\_internal, LICENSE, README.md, config.json, images, messages, prompts -DestinationPath $zipName
 
       - name: Upload release archive
         uses: actions/upload-release-asset@v1
