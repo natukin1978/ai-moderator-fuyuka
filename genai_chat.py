@@ -5,6 +5,14 @@ import pickle
 
 from google import genai
 from google.genai import chats, errors, types
+from google.genai.types import (
+    GenerateContentConfig,
+    GoogleSearch,
+    HarmBlockThreshold,
+    HarmCategory,
+    SafetySetting,
+    Tool,
+)
 
 import global_value as g
 from cache_helper import get_cache_filepath
@@ -17,26 +25,28 @@ class GenAIChat:
 
     GENAI_SAFETY_SETTINGS = [
         # ハラスメントは中程度を許容する
-        types.SafetySetting(
-            category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
-            threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        SafetySetting(
+            category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold=HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
         ),
         # ヘイトスピーチは厳しく制限する
-        types.SafetySetting(
-            category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-            threshold=types.HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+        SafetySetting(
+            category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
         ),
         # セクシャルな内容を多少は許容する
-        types.SafetySetting(
-            category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-            threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        SafetySetting(
+            category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH,
         ),
         # ゲーム向けなので、危険に分類されるコンテンツを許容できる
-        types.SafetySetting(
-            category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-            threshold=types.HarmBlockThreshold.BLOCK_NONE,
+        SafetySetting(
+            category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold=HarmBlockThreshold.BLOCK_NONE,
         ),
     ]
+
+    GOOGLE_SEARCH_TOOL = Tool(google_search=GoogleSearch())
 
     def __init__(self):
         conf_g = g.config["google"]
@@ -49,9 +59,10 @@ class GenAIChat:
             conf_g = g.config["google"]
             self.genaiChat = self.client.aio.chats.create(
                 model=conf_g["modelName"],
-                config=types.GenerateContentConfig(
+                config=GenerateContentConfig(
                     system_instruction=g.BASE_PROMPT,
                     safety_settings=self.GENAI_SAFETY_SETTINGS,
+                    tools=[self.GOOGLE_SEARCH_TOOL],
                 ),
                 history=self.chat_history,
             )
