@@ -7,6 +7,7 @@ from google import genai
 from google.genai import chats, errors, types
 from google.genai.types import (
     GenerateContentConfig,
+    GoogleSearch,
     HarmBlockThreshold,
     HarmCategory,
     SafetySetting,
@@ -45,6 +46,8 @@ class GenAIChat:
         ),
     ]
 
+    GENAI_TOOLS = [Tool(google_search=GoogleSearch())]
+
     def __init__(self):
         conf_g = g.config["google"]
         self.client = genai.Client(api_key=conf_g["geminiApiKey"])
@@ -59,6 +62,7 @@ class GenAIChat:
                 config=GenerateContentConfig(
                     system_instruction=g.BASE_PROMPT,
                     safety_settings=self.GENAI_SAFETY_SETTINGS,
+                    tools=self.GENAI_TOOLS,
                 ),
                 history=self.chat_history,
             )
