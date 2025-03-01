@@ -46,7 +46,7 @@ class GenAIChat:
         ),
     ]
 
-    GENAI_TOOLS = [Tool(google_search=GoogleSearch())]
+    GOOGLE_SEARCH_TOOL = Tool(google_search=GoogleSearch())
 
     def __init__(self):
         conf_g = g.config["google"]
@@ -62,7 +62,7 @@ class GenAIChat:
                 config=GenerateContentConfig(
                     system_instruction=g.BASE_PROMPT,
                     safety_settings=self.GENAI_SAFETY_SETTINGS,
-                    tools=self.GENAI_TOOLS,
+                    tools=[self.GOOGLE_SEARCH_TOOL],
                 ),
                 history=self.chat_history,
             )
