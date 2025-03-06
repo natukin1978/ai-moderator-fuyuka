@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import sys
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -178,7 +179,17 @@ async def _flow_story(json_data: dict[str, any]) -> str:
     return response_text
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    caption = "電脳娘フユカ(AIモデレーター Fuyuka API)"
+    # startup
+    logger.info(caption + "スタートしました。")
+    yield
+    # shutdown
+    logger.info(caption + "終了しました。")
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
