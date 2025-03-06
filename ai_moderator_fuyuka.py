@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import sys
 
 import uvicorn
@@ -143,6 +144,10 @@ html = f"""
 """
 
 
+def remove_newlines(value: str) -> str:
+    return re.sub(r"[\r\n]", " ", value)
+
+
 async def flow_story_genai_chat() -> str:
     if not g.story_buffer:
         return
@@ -194,7 +199,7 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     response_json = {
         "id": id,
         "request": json_data,
-        "response": response_text,
+        "response": remove_newlines(response_text),
     }
     await manager.broadcast_json(response_json)
     return JSONResponse(response_json)
@@ -218,7 +223,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             response_json = {
                 "id": id,
                 "request": json_data,
-                "response": response_text,
+                "response": remove_newlines(response_text),
             }
             await manager.broadcast_json(response_json)
     except WebSocketDisconnect:
