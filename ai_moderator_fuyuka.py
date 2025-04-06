@@ -150,6 +150,15 @@ def remove_newlines(value: str) -> str:
     return re.sub(r"[\r\n]", " ", value)
 
 
+def push_additionalRequests(json_data: dict[str, any]):
+    json_data["additionalRequests"] = " ".join(
+        [
+            json_data["additionalRequests"],
+            g.ADDITIONAL_REQUESTS_PROMPT,
+        ]
+    )
+
+
 async def flow_story_genai_chat() -> str:
     if not g.story_buffer:
         return
@@ -206,6 +215,7 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
         response_text = await _flow_story(json_data)
     else:
         await flow_story_genai_chat()
+        push_additionalRequests(json_data)
         response_text = await genai_chat.send_message_by_json(json_data)
 
     response_json = {
@@ -229,6 +239,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 continue
 
             await flow_story_genai_chat()
+            push_additionalRequests(json_data)
             response_text = await genai_chat.send_message_by_json(json_data)
             if not response_text:
                 continue
