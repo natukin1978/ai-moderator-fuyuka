@@ -175,3 +175,4 @@ cython_debug/
 /messages/error_message.txt
 /messages/stop_candidate_message.txt
 /prompts/base_prompt.txt
+/prompts/additional_requests_prompt.txt
