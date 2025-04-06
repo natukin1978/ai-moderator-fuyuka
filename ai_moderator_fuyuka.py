@@ -151,12 +151,11 @@ def remove_newlines(value: str) -> str:
 
 
 def push_additionalRequests(json_data: dict[str, any]):
-    json_data["additionalRequests"] = " ".join(
-        [
-            json_data["additionalRequests"],
-            g.ADDITIONAL_REQUESTS_PROMPT,
-        ]
-    )
+    additional_requests = []
+    if "additionalRequests" in json_data and json_data["additionalRequests"]:
+        additional_requests.append(json_data["additionalRequests"])
+    additional_requests.append(g.ADDITIONAL_REQUESTS_PROMPT)
+    json_data["additionalRequests"] = " ".join(additional_requests)
 
 
 async def flow_story_genai_chat() -> str:
