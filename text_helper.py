@@ -3,12 +3,21 @@ import os
 import global_value as g
 
 
-def readText(name: str):
-    file_path = os.path.join(g.base_dir, name)
-    if not os.path.isfile(file_path):
+def read_text(name: str) -> str:
+    if not os.path.isabs(name):
+        name = os.path.join(g.base_dir, name)
+    if not os.path.isfile(name):
         # 無いならひな形を参照
-        file_path += ".template"
-        if not os.path.isfile(file_path):
+        name += ".template"
+        if not os.path.isfile(name):
             return ""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(name, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def read_texts(name: str) -> list[str]:
+    return read_text(name).splitlines()
+
+
+def read_text_set(name: str) -> set[str]:
+    return set(read_texts(name))

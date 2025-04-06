@@ -20,14 +20,14 @@ g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 from config_helper import readConfig
 from genai_chat import GenAIChat
-from text_helper import readText
+from text_helper import read_text
 
 print("前回の続きですか？(y/n) ", end="")
 is_continue = input() == "y"
 
-g.BASE_PROMPT = readText("prompts/base_prompt.txt")
-g.ERROR_MESSAGE = readText("messages/error_message.txt")
-g.STOP_CANDIDATE_MESSAGE = readText("messages/stop_candidate_message.txt")
+g.BASE_PROMPT = read_text("prompts/base_prompt.txt")
+g.ERROR_MESSAGE = read_text("messages/error_message.txt")
+g.STOP_CANDIDATE_MESSAGE = read_text("messages/stop_candidate_message.txt")
 
 g.config = readConfig()
 
