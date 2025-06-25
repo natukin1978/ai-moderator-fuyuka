@@ -56,6 +56,7 @@ class GenAIChat:
         self.chat_history = None
         self.genaiChat = None
 
+    @staticmethod
     def get_error_message(error_code: int) -> str:
         match error_code:
             case 429:
@@ -96,7 +97,7 @@ class GenAIChat:
 
     async def send_message(self, message: str) -> str:
         if self.is_abort and self.last_error_code:
-            return self.get_error_message(self.last_error_code)
+            return GenAIChat.get_error_message(self.last_error_code)
         try:
             logger.debug(message)
             chat_session = self.get_chat()
@@ -118,7 +119,7 @@ class GenAIChat:
                     self.is_abort = True
                 case _:
                     pass
-            return self.get_error_message(self.last_error_code)
+            return GenAIChat.get_error_message(self.last_error_code)
         except IndexError as e:
             logger.error(e)
             return ""
