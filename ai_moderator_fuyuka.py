@@ -231,8 +231,12 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
 async def chat_ws(websocket: WebSocket, id: str) -> None:
     await manager.connect(websocket)
     try:
+        is_abort = False
         while True:
             json_data = await websocket.receive_json()
+            if is_abort:
+                # 例外: 停止状態なら、これ以降処理しない
+                continue
             if "noisy" in json_data and json_data["noisy"]:
                 # 例外: noisyの場合、flow_storyとしてバッファにためておく
                 asyncio.create_task(_flow_story(json_data))
@@ -249,6 +253,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 "response": remove_newlines(response_text),
             }
             await manager.broadcast_json(response_json)
+            is_abort = genai_chat.is_abort
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{id} left the chat")
