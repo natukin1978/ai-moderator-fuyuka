@@ -174,5 +174,6 @@ cython_debug/
 /config.json
 /messages/error_message.txt
 /messages/stop_candidate_message.txt
+/messages/resource_exhausted_message.txt
 /prompts/base_prompt.txt
 /prompts/additional_requests_prompt.txt

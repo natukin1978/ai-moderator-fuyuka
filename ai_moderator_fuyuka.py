@@ -29,6 +29,7 @@ g.BASE_PROMPT = read_text("prompts/base_prompt.txt")
 g.ADDITIONAL_REQUESTS_PROMPT = read_text("prompts/additional_requests_prompt.txt")
 g.ERROR_MESSAGE = read_text("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = read_text("messages/stop_candidate_message.txt")
+g.RESOURCE_EXHAUSTED_MESSAGE = read_text("messages/resource_exhausted_message.txt")
 
 g.config = readConfig()
 
