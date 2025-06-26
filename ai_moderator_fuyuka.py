@@ -97,6 +97,7 @@ class ChatResult(BaseModel):
     id: str
     request: ChatModel
     response: str
+    errorCode: int
 
 
 class Result(BaseModel):
@@ -222,6 +223,7 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
         "id": id,
         "request": json_data,
         "response": remove_newlines(response_text),
+        "errorCode": genai_chat.last_error_code,
     }
     await manager.broadcast_json(response_json)
     return JSONResponse(response_json)
@@ -251,6 +253,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 "id": id,
                 "request": json_data,
                 "response": remove_newlines(response_text),
+                "errorCode": genai_chat.last_error_code,
             }
             await manager.broadcast_json(response_json)
             is_abort = genai_chat.is_abort
