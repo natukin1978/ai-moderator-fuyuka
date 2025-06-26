@@ -80,6 +80,8 @@ class GenAIChat:
         return self.genaiChat
 
     def reset_chat_history(self) -> None:
+        self.is_abort = False
+        self.last_error_code = None
         self.chat_history = None
         self.genaiChat = None
 
