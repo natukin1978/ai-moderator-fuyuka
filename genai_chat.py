@@ -50,9 +50,20 @@ class GenAIChat:
 
     def __init__(self):
         conf_g = g.config["google"]
+        self.is_abort = False
+        self.last_error_code = None
         self.client = genai.Client(api_key=conf_g["geminiApiKey"])
         self.chat_history = None
         self.genaiChat = None
+
+    @staticmethod
+    def get_error_message(error_code: int) -> str:
+        match error_code:
+            case 429:
+                # トークン枯渇
+                return g.RESOURCE_EXHAUSTED_MESSAGE
+            case _:
+                return g.STOP_CANDIDATE_MESSAGE
 
     def get_chat(self) -> chats.AsyncChat:
         if not self.genaiChat:
@@ -69,6 +80,8 @@ class GenAIChat:
         return self.genaiChat
 
     def reset_chat_history(self) -> None:
+        self.is_abort = False
+        self.last_error_code = None
         self.chat_history = None
         self.genaiChat = None
 
@@ -85,6 +98,8 @@ class GenAIChat:
             pickle.dump(self.get_chat()._curated_history, f)
 
     async def send_message(self, message: str) -> str:
+        if self.is_abort and self.last_error_code:
+            return GenAIChat.get_error_message(self.last_error_code)
         try:
             logger.debug(message)
             chat_session = self.get_chat()
@@ -99,7 +114,14 @@ class GenAIChat:
             return response_text
         except errors.APIError as e:
             logger.error(e)
-            return g.STOP_CANDIDATE_MESSAGE
+            self.last_error_code = e.code
+            match e.code:
+                case 429:
+                    # トークン枯渇
+                    self.is_abort = True
+                case _:
+                    pass
+            return GenAIChat.get_error_message(self.last_error_code)
         except IndexError as e:
             logger.error(e)
             return ""

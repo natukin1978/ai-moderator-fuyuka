@@ -29,6 +29,7 @@ g.BASE_PROMPT = read_text("prompts/base_prompt.txt")
 g.ADDITIONAL_REQUESTS_PROMPT = read_text("prompts/additional_requests_prompt.txt")
 g.ERROR_MESSAGE = read_text("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = read_text("messages/stop_candidate_message.txt")
+g.RESOURCE_EXHAUSTED_MESSAGE = read_text("messages/resource_exhausted_message.txt")
 
 g.config = readConfig()
 
@@ -96,6 +97,7 @@ class ChatResult(BaseModel):
     id: str
     request: ChatModel
     response: str
+    errorCode: int
 
 
 class Result(BaseModel):
@@ -221,6 +223,7 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
         "id": id,
         "request": json_data,
         "response": remove_newlines(response_text),
+        "errorCode": genai_chat.last_error_code,
     }
     await manager.broadcast_json(response_json)
     return JSONResponse(response_json)
@@ -230,8 +233,12 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
 async def chat_ws(websocket: WebSocket, id: str) -> None:
     await manager.connect(websocket)
     try:
+        is_abort = False
         while True:
             json_data = await websocket.receive_json()
+            if is_abort:
+                # 例外: 停止状態なら、これ以降処理しない
+                continue
             if "noisy" in json_data and json_data["noisy"]:
                 # 例外: noisyの場合、flow_storyとしてバッファにためておく
                 asyncio.create_task(_flow_story(json_data))
@@ -246,8 +253,10 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 "id": id,
                 "request": json_data,
                 "response": remove_newlines(response_text),
+                "errorCode": genai_chat.last_error_code,
             }
             await manager.broadcast_json(response_json)
+            is_abort = genai_chat.is_abort
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{id} left the chat")
