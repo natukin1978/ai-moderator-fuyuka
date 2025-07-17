@@ -247,7 +247,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
             response_text = await genai_chat.send_message_by_json(json_data)
-            if not response_text:
+            if not response_text or is_abort:
                 continue
             response_json = {
                 "id": id,
