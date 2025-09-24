@@ -89,6 +89,7 @@ class ChatModel(BaseModel):
     content: str = "おはようございます。今日もよろしくお願いします。"
     isFirst: bool = False
     isFirstOnStream: bool = False
+    needsResponse: bool = False
     noisy: bool = False
     additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
 
@@ -173,8 +174,9 @@ async def flow_story_genai_chat() -> str:
         "content": g.story_buffer.rstrip(),
         "isFirst": False,
         "isFirstOnStream": False,
+        "needsResponse": False,
         "noisy": True,
-        "additionalRequests": "You understand the flow of the story. reply OK.",
+        "additionalRequests": "You understand the flow of the story. reply OK",
     }
     response_text = await genai_chat.send_message_by_json(json_data)
     g.story_buffer = ""
