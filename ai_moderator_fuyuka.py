@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import datetime
 import json
 import logging
@@ -248,9 +249,23 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
-            response_text = await genai_chat.send_message_by_json(json_data)
-            if not response_text or is_abort:
-                continue
+
+            json_data_send = copy.deepcopy(json_data)
+            while True:
+                response_text = await genai_chat.send_message_by_json(json_data_send)
+                if not response_text or is_abort:
+                    return
+                if "思考プロセス" in response_text:
+                    logger.warning(response_text)
+                    content = (
+                        json_data["dateTime"]
+                        + "に対する応答に`思考プロセス`が含まれている。やり直してください！"
+                    )
+                    logger.warning(content)
+                    json_data_send["content"] = content
+                else:
+                    break
+
             response_json = {
                 "id": id,
                 "request": json_data,
