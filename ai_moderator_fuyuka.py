@@ -197,7 +197,7 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
     json_data_send = copy.deepcopy(json_data)
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
-        if not response_text:
+        if not response_text or genai_chat.is_abort:
             return ""
         if "思考プロセス" in response_text:
             logger.warning(response_text)
@@ -254,10 +254,9 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
 async def chat_ws(websocket: WebSocket, id: str) -> None:
     await manager.connect(websocket)
     try:
-        is_abort = False
         while True:
             json_data = await websocket.receive_json()
-            if is_abort:
+            if genai_chat.is_abort:
                 # 例外: 停止状態なら、これ以降処理しない
                 continue
             if "noisy" in json_data and json_data["noisy"]:
@@ -268,7 +267,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
             response_text = await send_message_genai_chat(json_data)
-            if not response_text or is_abort:
+            if not response_text or genai_chat.is_abort:
                 continue
             response_json = {
                 "id": id,
@@ -277,7 +276,6 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 "errorCode": genai_chat.last_error_code,
             }
             await manager.broadcast_json(response_json)
-            is_abort = genai_chat.is_abort
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{id} left the chat")
