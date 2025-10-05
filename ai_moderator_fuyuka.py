@@ -181,7 +181,7 @@ async def flow_story_genai_chat() -> str:
     }
     response_text = await genai_chat.send_message_by_json(json_data)
     g.story_buffer = ""
-    return response_text
+    return remove_newlines(response_text)
 
 
 async def _flow_story(json_data: dict[str, any]) -> str:
@@ -190,7 +190,25 @@ async def _flow_story(json_data: dict[str, any]) -> str:
     if len(g.story_buffer) <= 1000:
         return ""
     response_text = await flow_story_genai_chat()
-    return response_text
+    return remove_newlines(response_text)
+
+
+async def send_message_genai_chat(json_data: dict[str, any]) -> str:
+    json_data_send = copy.deepcopy(json_data)
+    while True:
+        response_text = await genai_chat.send_message_by_json(json_data_send)
+        if not response_text:
+            return ""
+        if "思考プロセス" in response_text:
+            logger.warning(response_text)
+            content = (
+                json_data["dateTime"]
+                + "に対する応答に`思考プロセス`が含まれている。やり直してください！"
+            )
+            logger.warning(content)
+            json_data_send["content"] = content
+        else:
+            return remove_newlines(response_text)
 
 
 @asynccontextmanager
@@ -220,12 +238,12 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     else:
         await flow_story_genai_chat()
         push_additionalRequests(json_data)
-        response_text = await genai_chat.send_message_by_json(json_data)
+        response_text = await send_message_genai_chat(json_data)
 
     response_json = {
         "id": id,
         "request": json_data,
-        "response": remove_newlines(response_text),
+        "response": response_text,
         "errorCode": genai_chat.last_error_code,
     }
     await manager.broadcast_json(response_json)
@@ -249,27 +267,13 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
 
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
-
-            json_data_send = copy.deepcopy(json_data)
-            while True:
-                response_text = await genai_chat.send_message_by_json(json_data_send)
-                if not response_text or is_abort:
-                    return
-                if "思考プロセス" in response_text:
-                    logger.warning(response_text)
-                    content = (
-                        json_data["dateTime"]
-                        + "に対する応答に`思考プロセス`が含まれている。やり直してください！"
-                    )
-                    logger.warning(content)
-                    json_data_send["content"] = content
-                else:
-                    break
-
+            response_text = await send_message_genai_chat(json_data)
+            if not response_text or is_abort:
+                continue
             response_json = {
                 "id": id,
                 "request": json_data,
-                "response": remove_newlines(response_text),
+                "response": response_text,
                 "errorCode": genai_chat.last_error_code,
             }
             await manager.broadcast_json(response_json)
