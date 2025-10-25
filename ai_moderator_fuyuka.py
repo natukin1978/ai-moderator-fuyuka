@@ -198,8 +198,8 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text or genai_chat.is_abort:
-            return ""
-        if "思考プロセス" in response_text:
+            return response_text
+        if "プロセス" in response_text:
             logger.warning(response_text)
             content = (
                 json_data["dateTime"]
@@ -267,7 +267,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
             response_text = await send_message_genai_chat(json_data)
-            if not response_text or genai_chat.is_abort:
+            if not response_text:
                 continue
             response_json = {
                 "id": id,
