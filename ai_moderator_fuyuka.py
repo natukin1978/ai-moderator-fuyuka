@@ -199,7 +199,8 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text or genai_chat.is_abort:
             return response_text
-        if "プロセス" in response_text:
+        RETRY_WORDS = ["プロセス", "thinking"]
+        if any(c in response_text for c in RETRY_WORDS):
             logger.warning(response_text)
             content = (
                 json_data["dateTime"]
