@@ -21,6 +21,7 @@ g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 from config_helper import readConfig
 from genai_chat import GenAIChat
+from text_cleaner import clean_and_extract_alt
 from text_helper import read_text
 
 print("前回の続きですか？(y/n) ", end="")
@@ -162,6 +163,10 @@ def push_additionalRequests(json_data: dict[str, any]):
     json_data["additionalRequests"] = " ".join(additional_requests)
 
 
+def clean_and_extract_alt_by_json(json_data: dict[str, any]) -> None:
+    json_data["content"] = clean_and_extract_alt(json_data["content"])
+
+
 async def flow_story_genai_chat() -> str:
     if not g.story_buffer:
         return
@@ -233,6 +238,7 @@ async def chat_test() -> str:
 @app.post("/chat/{id}")
 async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
+    clean_and_extract_alt_by_json(json_data)
     response_text = ""
     if "noisy" in json_data and json_data["noisy"]:
         response_text = await _flow_story(json_data)
@@ -260,6 +266,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             if genai_chat.is_abort:
                 # 例外: 停止状態なら、これ以降処理しない
                 continue
+            clean_and_extract_alt_by_json(json_data)
             if "noisy" in json_data and json_data["noisy"]:
                 # 例外: noisyの場合、flow_storyとしてバッファにためておく
                 asyncio.create_task(_flow_story(json_data))
