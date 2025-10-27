@@ -293,5 +293,17 @@ async def reset_chat() -> Result:
     return JSONResponse({"result": True})
 
 
+# @app.get("/response_ai/{id}/{response}")
+# async def response_ai(id: str, response: str) -> Result:
+#     response_json = {
+#         "id": id,
+#         "request": {},
+#         "response": response,
+#         "errorCode": 0,
+#     }
+#     await manager.broadcast_json(response_json)
+#     return JSONResponse({"result": True})
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=fuyuka_port)
