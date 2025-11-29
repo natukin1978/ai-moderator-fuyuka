@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class GenAIChat:
     FILENAME_CHAT_HISTORY = get_cache_filepath(f"{g.app_name}_gen_ai_chat_history.pkl")
+    FILENAME_API_KEY_INDEX = get_cache_filepath(f"{g.app_name}_api_key_index.pkl")
 
     GENAI_SAFETY_SETTINGS = [
         # ハラスメントは中程度を許容する
@@ -49,10 +50,9 @@ class GenAIChat:
     GOOGLE_SEARCH_TOOL = Tool(google_search=GoogleSearch())
 
     def __init__(self):
-        conf_g = g.config["google"]
         self.is_abort = False
         self.last_error_code = None
-        self.client = genai.Client(api_key=conf_g["geminiApiKey"])
+        self.client = genai.Client(api_key=self.get_api_key())
         self.chat_history = None
         self.genaiChat = None
 
@@ -64,6 +64,33 @@ class GenAIChat:
                 return g.RESOURCE_EXHAUSTED_MESSAGE
             case _:
                 return g.STOP_CANDIDATE_MESSAGE
+
+    @classmethod
+    def get_api_key_index(cls, inc_value: int = 0) -> int:
+        i = 0
+        if os.path.isfile(cls.FILENAME_API_KEY_INDEX):
+            with open(cls.FILENAME_API_KEY_INDEX, "rb") as f:
+                i = pickle.load(f)
+
+        i += inc_value
+        conf_g = g.config["google"]
+        # if 0 <= i and i < len(conf_g["geminiApiKey"]):
+        if 0 > i and i >= len(conf_g["geminiApiKey"]):
+            i = 0
+
+        return i
+
+    @staticmethod
+    def get_api_key() -> str:
+        i = GenAIChat.get_api_key_index()
+        conf_g = g.config["google"]
+        return conf_g["geminiApiKey"][i]
+
+    @classmethod
+    def rotate_api_key(cls) -> None:
+        i = cls.get_api_key_index(1)
+        with open(cls.FILENAME_API_KEY_INDEX, "wb") as f:
+            pickle.dump(i, f)
 
     def get_chat(self) -> chats.AsyncChat:
         if not self.genaiChat:
