@@ -204,7 +204,7 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text or genai_chat.is_abort:
             return response_text
-        RETRY_WORDS = ["プロセス", "thinking"]
+        RETRY_WORDS = ["プロセス", "thinking", "thought"]
         pattern = "|".join(RETRY_WORDS)
         if re.search(pattern, response_text, re.IGNORECASE):
             logger.warning(response_text)
