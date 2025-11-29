@@ -69,8 +69,8 @@ class GenAIChat:
     def get_api_key_index(cls, inc_value: int = 0) -> int:
         i = 0
         if os.path.isfile(cls.FILENAME_API_KEY_INDEX):
-            with open(cls.FILENAME_API_KEY_INDEX, "rb") as f:
-                i = pickle.load(f)
+            with open(cls.FILENAME_API_KEY_INDEX, "r") as f:
+                i = json.load(f)
 
         i += inc_value
         conf_g = g.config["google"]
@@ -89,8 +89,8 @@ class GenAIChat:
     @classmethod
     def rotate_api_key(cls) -> None:
         i = cls.get_api_key_index(1)
-        with open(cls.FILENAME_API_KEY_INDEX, "wb") as f:
-            pickle.dump(i, f)
+        with open(cls.FILENAME_API_KEY_INDEX, "w") as f:
+            json.dump(i, f)
 
     def get_chat(self) -> chats.AsyncChat:
         if not self.genaiChat:
