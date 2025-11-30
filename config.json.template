@@ -3,7 +3,9 @@
     "port": 38321
   },
   "google": {
-    "geminiApiKey": "",
+    "geminiApiKey": [
+      ""
+    ],
     "modelName": "gemini-2.0-flash"
   }
 }

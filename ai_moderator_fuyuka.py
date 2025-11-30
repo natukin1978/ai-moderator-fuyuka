@@ -199,11 +199,18 @@ async def _flow_story(json_data: dict[str, any]) -> str:
 
 
 async def send_message_genai_chat(json_data: dict[str, any]) -> str:
+    global genai_chat
     json_data_send = copy.deepcopy(json_data)
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
-        if not response_text or genai_chat.is_abort:
+        if genai_chat.is_abort:
+            # トークン枯渇したらローテーションする
+            GenAIChat.rotate_api_key()
+            genai_chat = GenAIChat()
+            continue
+        if not response_text:
             return response_text
+
         RETRY_WORDS = ["プロセス", "thinking", "thought"]
         pattern = "|".join(RETRY_WORDS)
         if re.search(pattern, response_text, re.IGNORECASE):
