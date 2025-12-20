@@ -75,7 +75,7 @@ class GenAIChat:
         i += inc_value
         conf_g = g.config["google"]
         # if 0 <= i and i < len(conf_g["geminiApiKey"]):
-        if 0 > i and i >= len(conf_g["geminiApiKey"]):
+        if 0 > i or i >= len(conf_g["geminiApiKey"]):
             i = 0
 
         return i
