@@ -15,9 +15,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 import global_value as g
+from logging_setup import setup_app_logging
 
 g.app_name = "ai_moderator_fuyuka"
 g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+# ロガーの設定
+setup_app_logging(log_file_path=f"{g.app_name}.log")
+logger = logging.getLogger(__name__)
 
 from config_helper import readConfig
 from genai_chat import GenAIChat
@@ -39,11 +44,6 @@ g.storyteller = ""
 g.story_buffer = ""
 
 fuyuka_port = g.config["fuyukaApi"]["port"]
-
-# ロガーの設定
-logging.basicConfig(level=logging.INFO)
-
-logger = logging.getLogger(__name__)
 
 genai_chat = GenAIChat()
 if is_continue and genai_chat.load_chat_history():
