@@ -21,7 +21,7 @@ g.app_name = "ai_moderator_fuyuka"
 g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 # ロガーの設定
-setup_app_logging(log_file_path=f"{g.app_name}.log", log_level=logging.DEBUG)
+setup_app_logging(log_file_path=f"{g.app_name}.log")
 logger = logging.getLogger(__name__)
 
 from config_helper import readConfig

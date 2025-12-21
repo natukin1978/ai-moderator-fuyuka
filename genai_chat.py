@@ -131,7 +131,6 @@ class GenAIChat:
             logger.debug(message)
             chat_session = self.get_chat()
             response = await chat_session.send_message(message)
-            # logger.debug(f"Cached tokens: {response.usage_metadata.cached_content_token_count}")
             response_text = response.text
             if response_text:
                 response_text = response_text.rstrip()
