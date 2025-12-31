@@ -184,7 +184,7 @@ async def flow_story_genai_chat() -> str:
         "noisy": True,
         "additionalRequests": "You understand the flow of the story. reply OK",
     }
-    response_text = await genai_chat.send_message_by_json(json_data)
+    response_text = await send_message_genai_chat(json_data)
     g.story_buffer = ""
     return remove_newlines(response_text)
 
