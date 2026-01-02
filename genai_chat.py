@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pickle
+from collections import deque
 
 from google import genai
 from google.genai import chats, errors, types
@@ -137,6 +138,12 @@ class GenAIChat:
             else:
                 response_text = ""
             logger.debug(response_text)
+
+            curated_history = self.get_chat()._curated_history
+            conf_g = g.config["google"]
+            if len(curated_history) > conf_g["maxHistoryLength"]:
+                curated_history.pop(0)
+
             self.save_chat_history()
             return response_text
         except errors.APIError as e:
