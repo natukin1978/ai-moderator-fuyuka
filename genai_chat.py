@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import pickle
-from collections import deque
 
 from google import genai
 from google.genai import chats, errors, types
@@ -129,8 +128,7 @@ class GenAIChat:
         curated_history = self.get_chat()._curated_history
         conf_g = g.config["google"]
         if len(curated_history) > conf_g["maxHistoryLength"]:
-            curated_history.pop(0)
-            curated_history.pop(0)
+            del curated_history[0:2] # del index 0,1
 
     async def send_message(self, message: str) -> str:
         if self.is_abort and self.last_error_code:
