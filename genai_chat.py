@@ -125,6 +125,13 @@ class GenAIChat:
         with open(self.FILENAME_CHAT_HISTORY, "wb") as f:
             pickle.dump(self.get_chat()._curated_history, f)
 
+    def remove_old_history(self) -> None:
+        curated_history = self.get_chat()._curated_history
+        conf_g = g.config["google"]
+        if len(curated_history) > conf_g["maxHistoryLength"]:
+            curated_history.pop(0)
+            curated_history.pop(0)
+
     async def send_message(self, message: str) -> str:
         if self.is_abort and self.last_error_code:
             return GenAIChat.get_error_message(self.last_error_code)
@@ -139,11 +146,7 @@ class GenAIChat:
                 response_text = ""
             logger.debug(response_text)
 
-            curated_history = self.get_chat()._curated_history
-            conf_g = g.config["google"]
-            if len(curated_history) > conf_g["maxHistoryLength"]:
-                curated_history.pop(0)
-
+            self.remove_old_history()
             self.save_chat_history()
             return response_text
         except errors.APIError as e:
