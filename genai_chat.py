@@ -7,6 +7,7 @@ from google import genai
 from google.genai import chats, errors, types
 from google.genai.types import (
     GenerateContentConfig,
+    GenerateContentResponse,
     GoogleSearch,
     HarmBlockThreshold,
     HarmCategory,
@@ -50,11 +51,11 @@ class GenAIChat:
     GOOGLE_SEARCH_TOOL = Tool(google_search=GoogleSearch())
 
     def __init__(self):
-        self.is_abort = False
         self.last_error_code = None
-        self.client = genai.Client(api_key=self.get_api_key())
+        self.api_key_index = None
+        self.client = None
         self.chat_history = None
-        self.genaiChat = None
+        self.genai_chat = None
 
     @staticmethod
     def get_error_message(error_code: int) -> str:
@@ -66,36 +67,50 @@ class GenAIChat:
                 return g.STOP_CANDIDATE_MESSAGE
 
     @classmethod
-    def get_api_key_index(cls, inc_value: int = 0) -> int:
+    def load_api_key_index(cls) -> int:
         i = 0
         if os.path.isfile(cls.FILENAME_API_KEY_INDEX):
             with open(cls.FILENAME_API_KEY_INDEX, "r") as f:
                 i = json.load(f)
+        return i
 
+    @classmethod
+    def save_api_key_index(cls, index: int) -> int:
+        with open(cls.FILENAME_API_KEY_INDEX, "w") as f:
+            json.dump(index, f)
+
+    def get_api_key_index(self, inc_value: int = 0) -> int:
+        if self.api_key_index is None:
+            self.api_key_index = self.load_api_key_index()
+
+        i = self.api_key_index
         i += inc_value
         conf_g = g.config["google"]
         # if 0 <= i and i < len(conf_g["geminiApiKey"]):
         if 0 > i or i >= len(conf_g["geminiApiKey"]):
             i = 0
 
-        return i
+        if i != self.api_key_index:
+            self.save_api_key_index(i)
 
-    @staticmethod
-    def get_api_key() -> str:
-        i = GenAIChat.get_api_key_index()
+        self.api_key_index = i
+        return self.api_key_index
+
+    def get_api_key(self) -> str:
+        i = self.get_api_key_index()
         conf_g = g.config["google"]
         return conf_g["geminiApiKey"][i]
 
-    @classmethod
-    def rotate_api_key(cls) -> None:
-        i = cls.get_api_key_index(1)
-        with open(cls.FILENAME_API_KEY_INDEX, "w") as f:
-            json.dump(i, f)
+    def get_client(self) -> genai.Client:
+        if self.client is None:
+            self.client = genai.Client(api_key=self.get_api_key())
+
+        return self.client
 
     def get_chat(self) -> chats.AsyncChat:
-        if not self.genaiChat:
+        if self.genai_chat is None:
             conf_g = g.config["google"]
-            self.genaiChat = self.client.aio.chats.create(
+            self.genai_chat = self.get_client().aio.chats.create(
                 model=conf_g["modelName"],
                 config=GenerateContentConfig(
                     system_instruction=g.BASE_PROMPT,
@@ -104,20 +119,19 @@ class GenAIChat:
                 ),
                 history=self.chat_history,
             )
-        return self.genaiChat
+        return self.genai_chat
 
     def reset_chat_history(self) -> None:
-        self.is_abort = False
         self.last_error_code = None
         self.chat_history = None
-        self.genaiChat = None
+        self.genai_chat = None
 
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_CHAT_HISTORY):
             return False
         with open(self.FILENAME_CHAT_HISTORY, "rb") as f:
             self.chat_history = pickle.load(f)
-            self.genaiChat = None
+            self.genai_chat = None
             return True
 
     def save_chat_history(self) -> None:
@@ -128,41 +142,50 @@ class GenAIChat:
         curated_history = self.get_chat()._curated_history
         conf_g = g.config["google"]
         if len(curated_history) > conf_g["maxHistoryLength"]:
-            del curated_history[0:2] # del index 0,1
+            del curated_history[0:2]  # del index 0,1
+
+    async def generate_text(self, gcr: GenerateContentResponse, data: any) -> str:
+        while True:
+            try:
+                conf_g = g.config["google"]
+                response = await gcr(data)
+                response_text = response.text
+                if response_text:
+                    response_text = response_text.rstrip()
+                else:
+                    response_text = ""
+                logger.debug(response_text)
+
+                self.remove_old_history()
+                self.save_chat_history()
+                return response_text
+            except errors.APIError as e:
+                logger.error(e)
+                self.last_error_code = e.code
+                match e.code:
+                    case 429:
+                        # トークン枯渇
+                        self.get_api_key_index(1)
+                        self.client = None
+                        self.genai_chat = None
+                        continue
+                    case _:
+                        pass
+                return GenAIChat.get_error_message(self.last_error_code)
+            except IndexError as e:
+                logger.error(e)
+                return ""
+            except Exception as e:
+                logger.error(e)
+                return g.ERROR_MESSAGE
+
+    async def send_message_1(self, message: str) -> GenerateContentResponse:
+        chat_session = self.get_chat()
+        response = await chat_session.send_message(message)
+        return response
 
     async def send_message(self, message: str) -> str:
-        if self.is_abort and self.last_error_code:
-            return GenAIChat.get_error_message(self.last_error_code)
-        try:
-            logger.debug(message)
-            chat_session = self.get_chat()
-            response = await chat_session.send_message(message)
-            response_text = response.text
-            if response_text:
-                response_text = response_text.rstrip()
-            else:
-                response_text = ""
-            logger.debug(response_text)
-
-            self.remove_old_history()
-            self.save_chat_history()
-            return response_text
-        except errors.APIError as e:
-            logger.error(e)
-            self.last_error_code = e.code
-            match e.code:
-                case 429:
-                    # トークン枯渇
-                    self.is_abort = True
-                case _:
-                    pass
-            return GenAIChat.get_error_message(self.last_error_code)
-        except IndexError as e:
-            logger.error(e)
-            return ""
-        except Exception as e:
-            logger.error(e)
-            return g.ERROR_MESSAGE
+        return await self.generate_text(self.send_message_1, message)
 
     async def send_message_by_json(self, json_data: dict[str, any]) -> str:
         json_str = json.dumps(json_data, ensure_ascii=False, separators=(",", ":"))

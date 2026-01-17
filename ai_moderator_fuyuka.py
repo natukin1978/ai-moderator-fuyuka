@@ -199,15 +199,9 @@ async def _flow_story(json_data: dict[str, any]) -> str:
 
 
 async def send_message_genai_chat(json_data: dict[str, any]) -> str:
-    global genai_chat
     json_data_send = copy.deepcopy(json_data)
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
-        if genai_chat.is_abort:
-            # トークン枯渇したらローテーションする
-            GenAIChat.rotate_api_key()
-            genai_chat = GenAIChat()
-            continue
         if not response_text:
             return response_text
 
@@ -271,9 +265,6 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
     try:
         while True:
             json_data = await websocket.receive_json()
-            if genai_chat.is_abort:
-                # 例外: 停止状態なら、これ以降処理しない
-                continue
             clean_and_extract_alt_by_json(json_data)
             if "noisy" in json_data and json_data["noisy"]:
                 # 例外: noisyの場合、flow_storyとしてバッファにためておく
