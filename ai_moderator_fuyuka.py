@@ -25,6 +25,7 @@ setup_app_logging(log_file_path=f"{g.app_name}.log")
 logger = logging.getLogger(__name__)
 
 from config_helper import readConfig
+from dict_helper import remove_keys_by_value
 from genai_chat import GenAIChat
 from text_cleaner import clean_and_extract_alt
 from text_helper import read_text
@@ -200,6 +201,7 @@ async def _flow_story(json_data: dict[str, any]) -> str:
 
 async def send_message_genai_chat(json_data: dict[str, any]) -> str:
     json_data_send = copy.deepcopy(json_data)
+    remove_keys_by_value(json_data_send, ["isFirst", "isFirstOnStream", "noisy"], False)
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text:
