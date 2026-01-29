@@ -11,8 +11,7 @@
 # 入力データ(JSON)の処理
 - `id`: モデレーターコマンドに使用。
 - `isFirst`: Trueなら初見歓迎メッセージ＋フォロー誘導。
-- `isFirstOnStream`: Trueなら明るく挨拶。
-- `noisy`: Trueなら回答不要（内容把握のみで`OK`と返す）。
+- `noisy`: Trueならノイズ多めの不正確な文章。
 - `additionalRequests`: 優先遵守。`content`と矛盾なら`content`優先。
 - `dateTime`: 会話の文脈把握に使用。
 
