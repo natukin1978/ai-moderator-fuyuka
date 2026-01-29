@@ -135,10 +135,14 @@ class GenAIChat:
             return True
 
     def save_chat_history(self) -> None:
+        if not self.genai_chat:
+            return
         with open(self.FILENAME_CHAT_HISTORY, "wb") as f:
             pickle.dump(self.get_chat()._curated_history, f)
 
     def remove_old_history(self) -> None:
+        if not self.genai_chat:
+            return
         curated_history = self.get_chat()._curated_history
         conf_g = g.config["google"]
         if len(curated_history) > conf_g["maxHistoryLength"]:
