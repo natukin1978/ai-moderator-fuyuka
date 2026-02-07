@@ -90,8 +90,6 @@ class ChatModel(BaseModel):
     displayName: str = "マスター"
     nickname: str = "ご主人様"
     content: str = "おはようございます。今日もよろしくお願いします。"
-    isFirst: bool = False
-    isFirstOnStream: bool = False
     needsResponse: bool = False
     noisy: bool = False
     additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
@@ -179,8 +177,6 @@ async def flow_story_genai_chat() -> str:
         "id": None,
         "displayName": g.storyteller,
         "content": g.story_buffer.rstrip(),
-        "isFirst": False,
-        "isFirstOnStream": False,
         "needsResponse": False,
         "noisy": True,
         "additionalRequests": "Get a general idea of the flow of the conversation.",
