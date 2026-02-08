@@ -165,15 +165,16 @@ class GenAIChat:
                 return response_text
             except errors.APIError as e:
                 logger.error(e)
-                self.last_error_code = e.code
                 match e.code:
                     case 429:
                         # トークン枯渇
+                        self.last_error_code = None
                         self.get_api_key_index(1)
                         self.client = None
                         self.genai_chat = None
                         continue
                     case _:
+                        self.last_error_code = e.code
                         pass
                 return GenAIChat.get_error_message(self.last_error_code)
             except IndexError as e:
