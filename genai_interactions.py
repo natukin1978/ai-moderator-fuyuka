@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+
 from google import genai
 from google.genai import errors, types
 
@@ -14,28 +15,28 @@ class GenAIInteractions:
     FILENAME_INTERACTION_ID = get_cache_filepath(f"{g.app_name}_interaction_id.txt")
     FILENAME_API_KEY_INDEX = get_cache_filepath(f"{g.app_name}_api_key_index.pkl")
 
-  # GENAI_SAFETY_SETTINGS = [
-  #     # ハラスメントは中程度を許容する
-  #     SafetySetting(
-  #         category=HarmCategory.HARM_CATEGORY_HARASSMENT,
-  #         threshold=HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  #     ),
-  #     # ヘイトスピーチは厳しく制限する
-  #     SafetySetting(
-  #         category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-  #         threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-  #     ),
-  #     # セクシャルな内容を多少は許容する
-  #     SafetySetting(
-  #         category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-  #         threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH,
-  #     ),
-  #     # ゲーム向けなので、危険に分類されるコンテンツを許容できる
-  #     SafetySetting(
-  #         category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-  #         threshold=HarmBlockThreshold.BLOCK_NONE,
-  #     ),
-  # ]
+    # GENAI_SAFETY_SETTINGS = [
+    #     # ハラスメントは中程度を許容する
+    #     SafetySetting(
+    #         category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+    #         threshold=HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    #     ),
+    #     # ヘイトスピーチは厳しく制限する
+    #     SafetySetting(
+    #         category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    #         threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+    #     ),
+    #     # セクシャルな内容を多少は許容する
+    #     SafetySetting(
+    #         category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    #         threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    #     ),
+    #     # ゲーム向けなので、危険に分類されるコンテンツを許容できる
+    #     SafetySetting(
+    #         category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    #         threshold=HarmBlockThreshold.BLOCK_NONE,
+    #     ),
+    # ]
 
     GOOGLE_SEARCH_TOOL = [{"type": "google_search"}]
 
@@ -43,7 +44,7 @@ class GenAIInteractions:
         self.last_error_code = None
         self.api_key_index = None
         self.client = None
-        self.interaction_id = None  # これが前回のIDを保持する
+        self.interaction_id = None
 
     @staticmethod
     def get_error_message(error_code: int) -> str:
@@ -96,9 +97,8 @@ class GenAIInteractions:
         return self.client
 
     def reset_chat_history(self) -> None:
+        self.last_error_code = None
         self.interaction_id = None
-        if os.path.isfile(self.FILENAME_INTERACTION_ID):
-            os.remove(self.FILENAME_INTERACTION_ID)
 
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_INTERACTION_ID):
@@ -117,45 +117,43 @@ class GenAIInteractions:
             try:
                 conf_g = g.config["google"]
                 client = self.get_client()
-
-                # client.interactions.create を使用
-                # system_instruction は初回または毎回 input に含めるか、
-                # モデル設定（config）がサポートされている場合はそちらで指定します。
-                # ここでは確実な「システム指示を含めた入力」形式で記述します。
-                
                 interaction = await client.aio.interactions.create(
                     model=conf_g["modelName"],
                     system_instruction=g.BASE_PROMPT,
                     input=message,
                     previous_interaction_id=self.interaction_id,
                     tools=self.GOOGLE_SEARCH_TOOL,
-                    # 安全設定が必要な場合は config 引数で調整可能
                 )
 
-                # 新しい interaction_id を更新保存
                 if interaction.id:
                     self.save_chat_history(interaction.id)
 
-                # レスポンスからテキストを抽出 (抽出ロジックはご提示のサンプル通り)
-                text_output = next((o for o in interaction.outputs if o.type == "text"), None)
-                
+                # レスポンスからテキストを抽出
+                text_output = next(
+                    (o for o in interaction.outputs if o.type == "text"), None
+                )
+
                 if text_output:
                     response_text = text_output.text.rstrip()
                     logger.debug(f"Response: {response_text}")
                     return response_text
-                
+
                 return ""
 
             except errors.APIError as e:
-                if e.code == 429:
-                    logger.warning("Token exhausted, switching API key...")
-                    self.last_error_code = None
-                    self.get_api_key_index(1)
-                    self.client = None
-                    self.interaction_id = None # キーが変わるとIDも無効になる
-                    continue
-                
-                self.last_error_code = e.code
+                logger.error(e)
+                match e.code:
+                    case 429:
+                        # トークン枯渇
+                        logger.warning("Token exhausted, switching API key...")
+                        self.last_error_code = None
+                        self.get_api_key_index(1)
+                        self.client = None
+                        self.interaction_id = None  # キーが変わるとIDも無効になる
+                        continue
+                    case _:
+                        self.last_error_code = e.code
+                        pass
                 return self.get_error_message(e.code)
             except Exception as e:
                 logger.exception(f"Unexpected Error: {e}")
