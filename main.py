@@ -37,7 +37,8 @@ setup_app_logging(g.config["logLevel"], log_file_path=f"{g.app_name}.log")
 logger = logging.getLogger(__name__)
 
 from dict_helper import remove_keys_by_value
-from genai_chat import GenAIChat
+# from genai_chat import GenAIChat
+from genai_interactions import GenAIInteractions
 from ng_words_helper import read_ng_words
 from text_cleaner import clean_and_extract_alt
 from text_helper import read_text
@@ -53,7 +54,8 @@ g.story_buffer = ""
 
 fuyuka_port = g.config["fuyukaApi"]["port"]
 
-genai_chat = GenAIChat()
+# genai_chat = GenAIChat()
+genai_chat = GenAIInteractions()
 if is_continue and genai_chat.load_chat_history():
     print("会話履歴を復元しました。")
 
