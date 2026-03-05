@@ -123,6 +123,9 @@ class GenAIInteractions:
                     input=message,
                     previous_interaction_id=self.interaction_id,
                     tools=self.GOOGLE_SEARCH_TOOL,
+                    generation_config={
+                        "thinking_summaries": "none",
+                    },
                 )
 
                 if interaction.id:
