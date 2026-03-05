@@ -1,17 +1,8 @@
 import json
 import logging
 import os
-
 from google import genai
 from google.genai import errors, types
-from google.genai.types import (
-    GenerateContentConfig,
-    GoogleSearch,
-    HarmBlockThreshold,
-    HarmCategory,
-    SafetySetting,
-    Tool,
-)
 
 import global_value as g
 from cache_helper import get_cache_filepath
@@ -20,24 +11,39 @@ logger = logging.getLogger(__name__)
 
 
 class GenAIInteractions:
-    # 履歴は ID (文字列) だけ保存すれば良くなる
     FILENAME_INTERACTION_ID = get_cache_filepath(f"{g.app_name}_interaction_id.txt")
     FILENAME_API_KEY_INDEX = get_cache_filepath(f"{g.app_name}_api_key_index.pkl")
 
-    GENAI_SAFETY_SETTINGS = [
-        SafetySetting(category=HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE),
-        SafetySetting(category=HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE),
-        SafetySetting(category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH),
-        SafetySetting(category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=HarmBlockThreshold.BLOCK_NONE),
-    ]
+  # GENAI_SAFETY_SETTINGS = [
+  #     # ハラスメントは中程度を許容する
+  #     SafetySetting(
+  #         category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+  #         threshold=HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  #     ),
+  #     # ヘイトスピーチは厳しく制限する
+  #     SafetySetting(
+  #         category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+  #         threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+  #     ),
+  #     # セクシャルな内容を多少は許容する
+  #     SafetySetting(
+  #         category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+  #         threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH,
+  #     ),
+  #     # ゲーム向けなので、危険に分類されるコンテンツを許容できる
+  #     SafetySetting(
+  #         category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+  #         threshold=HarmBlockThreshold.BLOCK_NONE,
+  #     ),
+  # ]
 
-    GOOGLE_SEARCH_TOOL = Tool(google_search=GoogleSearch())
+    GOOGLE_SEARCH_TOOL = [{"type": "google_search"}]
 
     def __init__(self):
         self.last_error_code = None
         self.api_key_index = None
         self.client = None
-        self.interaction_id = None # 保存・復元するID
+        self.interaction_id = None  # これが前回のIDを保持する
 
     @staticmethod
     def get_error_message(error_code: int) -> str:
@@ -85,11 +91,15 @@ class GenAIInteractions:
 
     def get_client(self) -> genai.Client:
         if self.client is None:
-            # aio (Async) クライアントを使用
-            self.client = genai.Client(api_key=self.get_api_key(), http_options={'api_version': 'v1alpha'})
+            self.client = genai.Client(api_key=self.get_api_key())
+
         return self.client
 
-    # --- 履歴の保存・復元 ---
+    def reset_chat_history(self) -> None:
+        self.interaction_id = None
+        if os.path.isfile(self.FILENAME_INTERACTION_ID):
+            os.remove(self.FILENAME_INTERACTION_ID)
+
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_INTERACTION_ID):
             return False
@@ -97,56 +107,52 @@ class GenAIInteractions:
             self.interaction_id = f.read().strip()
             return True
 
-    def save_chat_history(self) -> None:
-        if not self.interaction_id:
-            return
+    def save_chat_history(self, interaction_id: str) -> None:
+        self.interaction_id = interaction_id
         with open(self.FILENAME_INTERACTION_ID, "w") as f:
-            f.write(self.interaction_id)
+            f.write(interaction_id)
 
-    def reset_chat_history(self) -> None:
-        self.interaction_id = None
-        if os.path.isfile(self.FILENAME_INTERACTION_ID):
-            os.remove(self.FILENAME_INTERACTION_ID)
-
-    # --- メインロジック ---
     async def generate_text(self, message: str) -> str:
         while True:
             try:
                 conf_g = g.config["google"]
                 client = self.get_client()
 
-                # Interactions API を使用した生成
-                # previous_interaction_id を指定することで文脈を維持
-                response = await client.aio.models.generate_content(
+                # client.interactions.create を使用
+                # system_instruction は初回または毎回 input に含めるか、
+                # モデル設定（config）がサポートされている場合はそちらで指定します。
+                # ここでは確実な「システム指示を含めた入力」形式で記述します。
+                
+                interaction = await client.aio.interactions.create(
                     model=conf_g["modelName"],
-                    contents=message,
-                    config=GenerateContentConfig(
-                        system_instruction=g.BASE_PROMPT,
-                        safety_settings=self.GENAI_SAFETY_SETTINGS,
-                        tools=[self.GOOGLE_SEARCH_TOOL],
-                        # ここがキモ：前回のIDがあれば渡す
-                        previous_interaction_id=self.interaction_id 
-                    )
+                    system_instruction=g.BASE_PROMPT,
+                    input=message,
+                    previous_interaction_id=self.interaction_id,
+                    tools=self.GOOGLE_SEARCH_TOOL,
+                    # 安全設定が必要な場合は config 引数で調整可能
                 )
 
-                # 新しい interaction_id を保存（これが次のターンの previous になる）
-                if response.interaction_id:
-                    self.interaction_id = response.interaction_id
-                    self.save_chat_history()
+                # 新しい interaction_id を更新保存
+                if interaction.id:
+                    self.save_chat_history(interaction.id)
 
-                response_text = response.text.rstrip() if response.text else ""
-                logger.debug(f"Gemini Response: {response_text}")
-                return response_text
+                # レスポンスからテキストを抽出 (抽出ロジックはご提示のサンプル通り)
+                text_output = next((o for o in interaction.outputs if o.type == "text"), None)
+                
+                if text_output:
+                    response_text = text_output.text.rstrip()
+                    logger.debug(f"Response: {response_text}")
+                    return response_text
+                
+                return ""
 
             except errors.APIError as e:
-                logger.error(f"API Error: {e}")
-                if e.code == 429: # Quota Exhausted
-                    # キーを切り替える
-                    self.api_key_index = (self.get_api_key_index() + 1) % len(g.config["google"]["geminiApiKey"])
-                    self.save_api_key_index(self.api_key_index)
+                if e.code == 429:
+                    logger.warning("Token exhausted, switching API key...")
+                    self.last_error_code = None
+                    self.get_api_key_index(1)
                     self.client = None
-                    # 注意: キーが変わると interaction_id は無効になるためリセット
-                    self.interaction_id = None 
+                    self.interaction_id = None # キーが変わるとIDも無効になる
                     continue
                 
                 self.last_error_code = e.code
