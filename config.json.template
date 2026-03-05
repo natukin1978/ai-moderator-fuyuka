@@ -7,7 +7,7 @@
     "geminiApiKey": [
       ""
     ],
-    "modelName": "gemini-2.5-flash",
+    "modelName": "gemini-3-flash-preview",
     "maxHistoryLength": 30
   }
 }
