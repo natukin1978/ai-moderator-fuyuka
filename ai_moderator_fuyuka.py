@@ -269,17 +269,20 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
                 asyncio.create_task(_flow_story(json_data))
                 continue
 
+            response_json = {
+                "id": id,
+                "request": json_data,
+            }
+            await manager.broadcast_json(response_json)
+
             await flow_story_genai_chat()
             push_additionalRequests(json_data)
             response_text = await send_message_genai_chat(json_data)
             if not response_text:
                 continue
-            response_json = {
-                "id": id,
-                "request": json_data,
-                "response": response_text,
-                "errorCode": genai_chat.last_error_code,
-            }
+
+            response_json["response"] = response_text
+            response_json["errorCode"] = genai_chat.last_error_code
             await manager.broadcast_json(response_json)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
