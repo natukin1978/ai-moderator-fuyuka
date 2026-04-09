@@ -1,10 +1,12 @@
+import asyncio
 import json
 import logging
 import os
 import pickle
+import random
 
 from google import genai
-from google.genai import chats, errors, types
+from google.genai import chats, errors
 from google.genai.types import (
     GenerateContentConfig,
     GenerateContentResponse,
@@ -149,9 +151,11 @@ class GenAIChat:
             del curated_history[0:2]  # del index 0,1
 
     async def generate_text(self, gcr: GenerateContentResponse, data: any) -> str:
+        retry_count = 0  # 503用のリトライカウンタ
+        max_retries = 5  # 最大リトライ回数
+
         while True:
             try:
-                conf_g = g.config["google"]
                 response = await gcr(data)
                 response_text = response.text
                 if response_text:
@@ -164,7 +168,7 @@ class GenAIChat:
                 self.save_chat_history()
                 return response_text
             except errors.APIError as e:
-                logger.error(e)
+                logger.error(f"API Error: {e.code} - {e}")
                 match e.code:
                     case 429:
                         # トークン枯渇
@@ -173,9 +177,22 @@ class GenAIChat:
                         self.client = None
                         self.genai_chat = None
                         continue
+                    case 503:
+                        # 高需要（サーバー過負荷）
+                        if retry_count < max_retries:
+                            # 指数バックオフの計算
+                            # 2^0, 2^1, 2^2... と増やす (1s, 2s, 4s, 8s...)
+                            delay = (2 ** retry_count) + random.uniform(0, 1)
+                            logger.warning(f"503 Service Unavailable. {delay:.2f}秒後にリトライします ({retry_count + 1}/{max_retries})")
+                            await asyncio.sleep(delay)
+                            retry_count += 1
+                            continue
+                        else:
+                            logger.error("最大リトライ回数に達しました。")
+                            self.last_error_code = 503
                     case _:
                         self.last_error_code = e.code
-                        pass
+                # ループを抜けてエラーメッセージを返す
                 return GenAIChat.get_error_message(self.last_error_code)
             except IndexError as e:
                 logger.error(e)
