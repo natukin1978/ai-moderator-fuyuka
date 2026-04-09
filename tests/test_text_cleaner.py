@@ -32,7 +32,7 @@ class TestTextCleaner(unittest.TestCase):
         # 5. alt属性がないimgタグのテスト
         input_text = '画像<img src="x" />は無視。'
         expected_output = "画像 は無視。"
-        self.assertEqual(clean_and_extract_alt(input_text), "画像 は無視。")
+        self.assertEqual(clean_and_extract_alt(input_text), expected_output)
 
     def test_leading_and_trailing_spaces(self):
         # 6. 先頭と末尾の空白除去のテスト
