@@ -1,0 +1,22 @@
+[tool.ruff.lint]
+# チェックするルールの選択
+# F: Pyflakes (未使用インポートなど), E: pycodestyle (エラー), I: isort (並べ替え)
+select = ["E", "F", "I"]
+
+# 無視するエラーコードを指定
+ignore = [
+    "E402",  # インポート位置の制限を無視
+    "E501",  # 1行の長さ制限を無視
+]
+
+# 自動修正を許可する
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+# E402を無視する場合、isortが勝手にインポートを一番上に移動させないよう
+# 以下の設定を合わせて入れておくと安心です
+split-on-trailing-comma = true
+
+# インポート文の間に「import以外のコード」がある場合、
+# それを境界線として扱い、勝手に移動させないようにする設定
+lines-after-imports = -1
