@@ -1,4 +1,5 @@
 {
+  "logLevel": "WARNING",
   "fuyukaApi": {
     "port": 38321
   },

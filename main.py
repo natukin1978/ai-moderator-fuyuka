@@ -15,23 +15,25 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 import global_value as g
+from config_helper import read_config
 from logging_setup import setup_app_logging
 
 g.app_name = "ai_moderator_fuyuka"
 g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
+print("前回の続きですか？(y/n) ", end="")
+is_continue = input() == "y"
+
+g.config = read_config()
+
 # ロガーの設定
-setup_app_logging(log_file_path=f"{g.app_name}.log")
+setup_app_logging(g.config["logLevel"], log_file_path=f"{g.app_name}.log")
 logger = logging.getLogger(__name__)
 
-from config_helper import readConfig
 from dict_helper import remove_keys_by_value
 from genai_chat import GenAIChat
 from text_cleaner import clean_and_extract_alt
 from text_helper import read_text
-
-print("前回の続きですか？(y/n) ", end="")
-is_continue = input() == "y"
 
 g.BASE_PROMPT = read_text("prompts/base_prompt.txt")
 g.ADDITIONAL_REQUESTS_PROMPT = read_text("prompts/additional_requests_prompt.txt")
@@ -39,7 +41,6 @@ g.ERROR_MESSAGE = read_text("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = read_text("messages/stop_candidate_message.txt")
 g.RESOURCE_EXHAUSTED_MESSAGE = read_text("messages/resource_exhausted_message.txt")
 
-g.config = readConfig()
 
 g.storyteller = ""
 g.story_buffer = ""
