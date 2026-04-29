@@ -16,13 +16,14 @@ from pydantic import BaseModel
 
 import global_value as g
 from config_helper import read_config
+from input_helper import input_with_timeout
 from logging_setup import setup_app_logging
 
 g.app_name = "ai_moderator_fuyuka"
 g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-print("前回の続きですか？(y/n) ", end="")
-is_continue = input() == "y"
+res = input_with_timeout("前回の続きですか？(y/n) [10秒以内に未入力なら 'n']: ", timeout=10)
+is_continue = (res == "y")
 
 g.config = read_config()
 
@@ -40,7 +41,6 @@ g.ADDITIONAL_REQUESTS_PROMPT = read_text("prompts/additional_requests_prompt.txt
 g.ERROR_MESSAGE = read_text("messages/error_message.txt")
 g.STOP_CANDIDATE_MESSAGE = read_text("messages/stop_candidate_message.txt")
 g.RESOURCE_EXHAUSTED_MESSAGE = read_text("messages/resource_exhausted_message.txt")
-
 
 g.storyteller = ""
 g.story_buffer = ""
