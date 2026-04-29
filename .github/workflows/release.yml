@@ -24,7 +24,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build executable with PyInstaller
-        run: pyinstaller ai_moderator_fuyuka.py --name AiModeratorFuyuka.exe
+        run: pyinstaller main.py --name AiModeratorFuyuka.exe
 
       - name: Rename config.json
         run: ren config.json.template config.json
