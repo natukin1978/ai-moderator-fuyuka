@@ -61,21 +61,33 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        # すでに削除されている場合の ValueError を防ぐ
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+        # 送信失敗した接続を特定するためにコピーを作成してループ
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_text(message)
+            except Exception:
+                # 送信失敗した接続はここで除外
+                self.disconnect(connection)
 
     async def send_personal_json(self, json_data: dict[str, any], websocket: WebSocket):
         await websocket.send_json(json_data)
 
     async def broadcast_json(self, json_data: dict[str, any]):
-        for connection in self.active_connections:
-            await connection.send_json(json_data)
+        # 送信失敗した接続を特定するためにコピーを作成してループ
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_json(json_data)
+            except Exception:
+                # 送信失敗した接続はここで除外
+                self.disconnect(connection)
 
 
 manager = ConnectionManager()
@@ -287,12 +299,13 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             response_json["errorCode"] = genai_chat.last_error_code
             await manager.broadcast_json(response_json)
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        await manager.broadcast(f"Client #{id} left the chat")
+        logger.info(f"Client #{id} disconnected normally")
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Unexpected error: {e}")
     finally:
-        logger.error("Client disconnected")
+        # 正常終了でも異常終了でも必ずリストから削除
+        manager.disconnect(websocket)
+        logger.info(f"Cleanup for Client #{id} completed")
 
 
 @app.get("/reset_chat")
