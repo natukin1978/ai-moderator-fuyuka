@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 from dict_helper import remove_keys_by_value
 from genai_chat import GenAIChat
+from ng_words_helper import read_ng_words
 from text_cleaner import clean_and_extract_alt
 from text_helper import read_text
 
@@ -210,6 +211,8 @@ async def _flow_story(json_data: dict[str, any]) -> str:
 
 
 async def send_message_genai_chat(json_data: dict[str, any]) -> str:
+    ng_words = read_ng_words()
+    pattern = "|".join(ng_words)
     json_data_send = copy.deepcopy(json_data)
     remove_keys_by_value(json_data_send, ["isFirst", "isFirstOnStream", "noisy"], False)
     while True:
@@ -217,13 +220,13 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
         if not response_text:
             return response_text
 
-        RETRY_WORDS = ["プロセス", "考え中", "thinking", "thought"]
-        pattern = "|".join(RETRY_WORDS)
-        if re.search(pattern, response_text, re.IGNORECASE):
+        match = re.search(pattern, response_text, re.IGNORECASE)
+        if match:
+            matched_word = match.group()
             logger.warning(response_text)
+            # 指摘文に具体的なキーワードを埋め込む
             content = (
-                json_data["dateTime"]
-                + "に対する応答に`思考プロセス`が含まれている。やり直してください！"
+                f"{json_data['dateTime']}の出力ですが`{matched_word}`という文章を含めずやり直してください。"
             )
             logger.warning(content)
             json_data_send["content"] = content
@@ -235,10 +238,10 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
 async def lifespan(app: FastAPI):
     caption = "電脳娘フユカ(AIモデレーター Fuyuka API)"
     # startup
-    logger.info(caption + "スタートしました。")
+    logger.info(caption + "スタートしました。", extra={'force': True})
     yield
     # shutdown
-    logger.info(caption + "終了しました。")
+    logger.info(caption + "終了しました。", extra={'force': True})
 
 
 app = FastAPI(lifespan=lifespan)
