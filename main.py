@@ -276,19 +276,20 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     json_data = jsonable_encoder(chat)
     clean_and_extract_alt_by_json(json_data)
 
+    if json_data.get("noisy", False):
+        # 例外: noisyの場合、flow_storyとしてバッファにためておく
+        await _flow_story(json_data)
+        return None
+
     response_json = {
         "id": id,
         "request": json_data,
     }
     await manager.broadcast_json(response_json)
 
-    response_text = ""
-    if "noisy" in json_data and json_data["noisy"]:
-        response_text = await _flow_story(json_data)
-    else:
-        await flow_story_genai_chat()
-        push_additionalRequests(json_data)
-        response_text = await send_message_genai_chat(json_data)
+    await flow_story_genai_chat()
+    push_additionalRequests(json_data)
+    response_text = await send_message_genai_chat(json_data)
 
     response_json["response"] = response_text
     response_json["errorCode"] = genai_chat.last_error_code
