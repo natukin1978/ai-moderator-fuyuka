@@ -168,6 +168,18 @@ html = f"""
 def remove_newlines(value: str) -> str:
     return re.sub(r"[\r\n]", " ", value)
 
+def update_viewerStatus(json_data: dict[str, any]):
+    viewerStatus = None
+    if "isFirst" in json_data and json_data["isFirst"]:
+        viewerStatus = "newViewer"
+    elif "isFirstOnStream" in json_data and json_data["isFirstOnStream"]:
+        viewerStatus = "streamFirst"
+    else:
+        viewerStatus = "regular"
+    json_data["viewerStatus"] = viewerStatus
+
+    del json_data["isFirst"]
+    del json_data["isFirstOnStream"]
 
 def push_additionalRequests(json_data: dict[str, any]):
     additional_requests = []
@@ -214,7 +226,8 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
     ng_words = read_ng_words()
     pattern = "|".join(ng_words)
     json_data_send = copy.deepcopy(json_data)
-    remove_keys_by_value(json_data_send, ["isFirst", "isFirstOnStream", "noisy"], False)
+    update_viewerStatus(json_data_send)
+    remove_keys_by_value(json_data_send, ["noisy"], False)
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text:
