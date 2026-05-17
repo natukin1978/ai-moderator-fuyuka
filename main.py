@@ -303,7 +303,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
         while True:
             json_data = await websocket.receive_json()
             clean_and_extract_alt_by_json(json_data)
-            if "noisy" in json_data and json_data["noisy"]:
+            if json_data.get("noisy", False):
                 # 例外: noisyの場合、flow_storyとしてバッファにためておく
                 asyncio.create_task(_flow_story(json_data))
                 continue
