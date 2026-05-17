@@ -169,17 +169,18 @@ def remove_newlines(value: str) -> str:
     return re.sub(r"[\r\n]", " ", value)
 
 def update_viewerStatus(json_data: dict[str, any]):
-    viewerStatus = None
-    if "isFirst" in json_data and json_data["isFirst"]:
+    # popで値を取り出しつつ、辞書から安全に削除する（キーがなければFalseになる）
+    is_first = json_data.pop("isFirst", False)
+    is_first_on_stream = json_data.pop("isFirstOnStream", False)
+
+    if is_first:
         viewerStatus = "newViewer"
-    elif "isFirstOnStream" in json_data and json_data["isFirstOnStream"]:
+    elif is_first_on_stream:
         viewerStatus = "streamFirst"
     else:
         viewerStatus = "regular"
-    json_data["viewerStatus"] = viewerStatus
 
-    del json_data["isFirst"]
-    del json_data["isFirstOnStream"]
+    json_data["viewerStatus"] = viewerStatus
 
 def push_additionalRequests(json_data: dict[str, any]):
     additional_requests = []
