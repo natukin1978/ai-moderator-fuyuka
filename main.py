@@ -19,11 +19,16 @@ from config_helper import read_config
 from input_helper import input_with_timeout
 from logging_setup import setup_app_logging
 
+is_testing = os.environ.get("APP_TESTING") == "True"
+
 g.app_name = "ai_moderator_fuyuka"
 g.base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-res = input_with_timeout("前回の続きですか？(y/n) [10秒以内に未入力なら 'n']: ", timeout=10)
-is_continue = (res == "y")
+if not is_testing:
+    res = input_with_timeout("前回の続きですか？(y/n) [10秒以内に未入力なら 'n']: ", timeout=10)
+    is_continue = (res == "y")
+else:
+    is_continue = False
 
 g.config = read_config()
 
@@ -333,18 +338,6 @@ async def reset_chat() -> Result:
     g.story_buffer = ""
     genai_chat.reset_chat_history()
     return JSONResponse({"result": True})
-
-
-# @app.get("/response_ai/{id}/{response}")
-# async def response_ai(id: str, response: str) -> Result:
-#     response_json = {
-#         "id": id,
-#         "request": {},
-#         "response": response,
-#         "errorCode": 0,
-#     }
-#     await manager.broadcast_json(response_json)
-#     return JSONResponse({"result": True})
 
 
 if __name__ == "__main__":
