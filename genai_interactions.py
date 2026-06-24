@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 import os
+import random
 
 from google import genai
 from google.genai import errors, types
@@ -118,6 +120,9 @@ class GenAIInteractions:
             f.write(interaction_id)
 
     async def generate_text(self, message: str) -> str:
+        retry_count = 0  # 503用のリトライカウンタ
+        max_retries = 5  # 最大リトライ回数
+
         while True:
             try:
                 conf_g = g.config["google"]
@@ -164,10 +169,23 @@ class GenAIInteractions:
                             except Exception as e:
                                 logger.error(f"Failed to delete interaction ID file on API key switch: {e}")
                         continue
+                    case 503:
+                        # 高需要（サーバー過負荷）
+                        if retry_count < max_retries:
+                            # 指数バックオフの計算
+                            # 2^0, 2^1, 2^2... と増やす (1s, 2s, 4s, 8s...)
+                            delay = (2 ** retry_count) + random.uniform(0, 1)
+                            logger.warning(f"503 Service Unavailable. {delay:.2f}秒後にリトライします ({retry_count + 1}/{max_retries})")
+                            await asyncio.sleep(delay)
+                            retry_count += 1
+                            continue
+                        else:
+                            logger.error("最大リトライ回数に達しました。")
+                            self.last_error_code = 503
                     case _:
                         self.last_error_code = e.code
                         pass
-                return self.get_error_message(e.code)
+                return self.get_error_message(self.last_error_code)
             except Exception as e:
                 logger.exception(f"Unexpected Error: {e}")
                 return g.ERROR_MESSAGE
