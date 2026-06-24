@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import pickle
 import random
 
 from google import genai
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 class GenAIInteractions:
     FILENAME_INTERACTION_ID = get_cache_filepath(f"{g.app_name}_interaction_id.txt")
     FILENAME_API_KEY_INDEX = get_cache_filepath(f"{g.app_name}_api_key_index.pkl")
+    FILENAME_CHAT_HISTORY = get_cache_filepath(f"{g.app_name}_gen_ai_interactions_history.pkl")
 
     # GENAI_SAFETY_SETTINGS = [
     #     # ハラスメントは中程度を許容する
@@ -47,6 +49,7 @@ class GenAIInteractions:
         self.api_key_index = None
         self.client = None
         self.interaction_id = None
+        self.history: list[tuple[str, str]] = []  # (role, text) のリスト
 
     @staticmethod
     def get_error_message(error_code: int) -> str:
@@ -101,23 +104,52 @@ class GenAIInteractions:
     def reset_chat_history(self) -> None:
         self.last_error_code = None
         self.interaction_id = None
-        if os.path.isfile(self.FILENAME_INTERACTION_ID):
-            try:
-                os.remove(self.FILENAME_INTERACTION_ID)
-            except Exception as e:
-                logger.error(f"Failed to delete interaction ID file: {e}")
+        self.history = []
+        for filepath in [self.FILENAME_INTERACTION_ID, self.FILENAME_CHAT_HISTORY]:
+            if os.path.isfile(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception as e:
+                    logger.error(f"Failed to delete file {filepath}: {e}")
 
     def load_chat_history(self) -> bool:
-        if not os.path.isfile(self.FILENAME_INTERACTION_ID):
-            return False
-        with open(self.FILENAME_INTERACTION_ID, "r") as f:
-            self.interaction_id = f.read().strip()
-            return True
+        loaded = False
+        if os.path.isfile(self.FILENAME_INTERACTION_ID):
+            with open(self.FILENAME_INTERACTION_ID, "r") as f:
+                self.interaction_id = f.read().strip()
+                loaded = True
+        if os.path.isfile(self.FILENAME_CHAT_HISTORY):
+            with open(self.FILENAME_CHAT_HISTORY, "rb") as f:
+                self.history = pickle.load(f)
+        return loaded
 
     def save_chat_history(self, interaction_id: str) -> None:
         self.interaction_id = interaction_id
         with open(self.FILENAME_INTERACTION_ID, "w") as f:
             f.write(interaction_id)
+        with open(self.FILENAME_CHAT_HISTORY, "wb") as f:
+            pickle.dump(self.history, f)
+
+    def remove_old_history(self) -> None:
+        """maxHistoryLength を超えた古い履歴エントリを削除する。"""
+        conf_g = g.config["google"]
+        max_len = conf_g["maxHistoryLength"]
+        if len(self.history) > max_len:
+            # 古い履歴から削除（1往復 = user+model の2エントリ）
+            del self.history[0:2]
+
+    def build_context_input(self, message: str) -> str:
+        """interaction_id がない場合にローカル履歴をコンテキストとして埋め込んだ入力を生成する。"""
+        if not self.history:
+            return message
+        lines = ["[直前の会話の文脈]"]
+        for role, text in self.history:
+            label = "ユーザー" if role == "user" else "アシスタント"
+            lines.append(f"{label}: {text}")
+        lines.append("")
+        lines.append("上記のやり取りを踏まえて、以下の新しいメッセージに応答してください。")
+        lines.append(message)
+        return "\n".join(lines)
 
     async def generate_text(self, message: str) -> str:
         retry_count = 0  # 503用のリトライカウンタ
@@ -131,14 +163,18 @@ class GenAIInteractions:
                 params = {
                     "model": conf_g["modelName"],
                     "system_instruction": g.BASE_PROMPT,
-                    "input": message,
                     "tools": self.GOOGLE_SEARCH_TOOL,
                     "generation_config": {
                         "thinking_summaries": "none",
                     },
                 }
                 if self.interaction_id:
+                    # 通常フロー: interaction_id で過去の会話を引き継ぐ
+                    params["input"] = message
                     params["previous_interaction_id"] = self.interaction_id
+                else:
+                    # APIキー切り替え後の初回など: ローカル履歴をコンテキストとして埋め込む
+                    params["input"] = self.build_context_input(message)
 
                 interaction = await client.aio.interactions.create(**params)
 
@@ -149,6 +185,10 @@ class GenAIInteractions:
                 if interaction.output_text:
                     response_text = interaction.output_text.rstrip()
                     logger.debug(f"Response: {response_text}")
+                    # ローカル履歴に追記
+                    self.history.append(("user", message))
+                    self.history.append(("model", response_text))
+                    self.remove_old_history()
                     return response_text
 
                 return ""
@@ -163,11 +203,12 @@ class GenAIInteractions:
                         self.get_api_key_index(1)
                         self.client = None
                         self.interaction_id = None  # キーが変わるとIDも無効になる
+                        # history は保持したまま（次のキーでコンテキスト注入に使う）
                         if os.path.isfile(self.FILENAME_INTERACTION_ID):
                             try:
                                 os.remove(self.FILENAME_INTERACTION_ID)
-                            except Exception as e:
-                                logger.error(f"Failed to delete interaction ID file on API key switch: {e}")
+                            except Exception as ex:
+                                logger.error(f"Failed to delete interaction ID file on API key switch: {ex}")
                         continue
                     case 503:
                         # 高需要（サーバー過負荷）
