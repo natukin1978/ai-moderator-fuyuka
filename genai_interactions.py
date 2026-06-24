@@ -99,6 +99,11 @@ class GenAIInteractions:
     def reset_chat_history(self) -> None:
         self.last_error_code = None
         self.interaction_id = None
+        if os.path.isfile(self.FILENAME_INTERACTION_ID):
+            try:
+                os.remove(self.FILENAME_INTERACTION_ID)
+            except Exception as e:
+                logger.error(f"Failed to delete interaction ID file: {e}")
 
     def load_chat_history(self) -> bool:
         if not os.path.isfile(self.FILENAME_INTERACTION_ID):
@@ -117,27 +122,27 @@ class GenAIInteractions:
             try:
                 conf_g = g.config["google"]
                 client = self.get_client()
-                interaction = await client.aio.interactions.create(
-                    model=conf_g["modelName"],
-                    system_instruction=g.BASE_PROMPT,
-                    input=message,
-                    previous_interaction_id=self.interaction_id,
-                    tools=self.GOOGLE_SEARCH_TOOL,
-                    generation_config={
+
+                params = {
+                    "model": conf_g["modelName"],
+                    "system_instruction": g.BASE_PROMPT,
+                    "input": message,
+                    "tools": self.GOOGLE_SEARCH_TOOL,
+                    "generation_config": {
                         "thinking_summaries": "none",
                     },
-                )
+                }
+                if self.interaction_id:
+                    params["previous_interaction_id"] = self.interaction_id
+
+                interaction = await client.aio.interactions.create(**params)
 
                 if interaction.id:
                     self.save_chat_history(interaction.id)
 
                 # レスポンスからテキストを抽出
-                text_output = next(
-                    (o for o in interaction.outputs if o.type == "text"), None
-                )
-
-                if text_output:
-                    response_text = text_output.text.rstrip()
+                if interaction.output_text:
+                    response_text = interaction.output_text.rstrip()
                     logger.debug(f"Response: {response_text}")
                     return response_text
 
@@ -153,6 +158,11 @@ class GenAIInteractions:
                         self.get_api_key_index(1)
                         self.client = None
                         self.interaction_id = None  # キーが変わるとIDも無効になる
+                        if os.path.isfile(self.FILENAME_INTERACTION_ID):
+                            try:
+                                os.remove(self.FILENAME_INTERACTION_ID)
+                            except Exception as e:
+                                logger.error(f"Failed to delete interaction ID file on API key switch: {e}")
                         continue
                     case _:
                         self.last_error_code = e.code
