@@ -264,17 +264,17 @@ class TestGenerateText(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("", result)
 
     async def test_429_switches_api_key_and_retries(self):
-        """429 エラー時にAPIキーが切り替わり、次のキーでリトライして成功すること。"""
+        """429 エラー時にAPIキーが切り替わり、次のキーでリトライして成功し、新しいIDが保存されること。"""
         self.gi.interaction_id = "old_id"
         self.gi.history = [("user", "prev"), ("model", "resp")]
         self._set_create_side_effect([
             make_api_error(429),
-            make_interaction_mock("success after key switch"),
+            make_interaction_mock("success after key switch", interaction_id="new_key_id"),
         ])
         result = await self.gi.generate_text("message")
         self.assertEqual("success after key switch", result)
         # interaction_id はクリアされているが history は保持されていること
-        self.assertIsNone(self.gi.interaction_id)
+        self.assertEqual("new_key_id", self.gi.interaction_id)
         self.assertIn(("user", "prev"), self.gi.history)
 
     async def test_429_clears_interaction_id_but_keeps_history(self):

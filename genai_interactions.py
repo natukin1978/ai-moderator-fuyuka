@@ -132,9 +132,12 @@ class GenAIInteractions:
         retry_count = 0  # 503用のリトライカウンタ
         max_retries = 5  # 最大リトライ回数
 
+        conf_g = g.config["google"]
+        key_switch_count = 0
+        max_key_switches = len(conf_g["geminiApiKey"]) # キーの総数
+
         while True:
             try:
-                conf_g = g.config["google"]
                 client = self.get_client()
 
                 params = {
@@ -175,34 +178,43 @@ class GenAIInteractions:
                 match e.code:
                     case 429:
                         # トークン枯渇
+
+                        # 全てのキーを試してもダメだった場合のガード
+                        key_switch_count += 1
+                        if key_switch_count >= max_key_switches:
+                            logger.error("All API keys are exhausted.")
+                            self.last_error_code = 429
+                            return self.get_error_message(429)
+
                         logger.warning("Token exhausted, switching API key...")
                         self.last_error_code = None
                         self.get_api_key_index(1)
                         self.client = None
                         self.interaction_id = None  # キーが変わるとIDも無効になる
                         # history は保持したまま（次のキーでコンテキスト注入に使う）
+                        retry_count = 0 # 503用のカウンタも念のためリセット
+
                         if os.path.isfile(self.FILENAME_INTERACTION_ID):
                             try:
                                 os.remove(self.FILENAME_INTERACTION_ID)
                             except Exception as ex:
-                                logger.error(f"Failed to delete interaction ID file on API key switch: {ex}")
+                                logger.error(f"Failed to delete file: {ex}")
                         continue
+
                     case 503:
                         # 高需要（サーバー過負荷）
                         if retry_count < max_retries:
                             # 指数バックオフの計算
-                            # 2^0, 2^1, 2^2... と増やす (1s, 2s, 4s, 8s...)
                             delay = (2 ** retry_count) + random.uniform(0, 1)
-                            logger.warning(f"503 Service Unavailable. {delay:.2f}秒後にリトライします ({retry_count + 1}/{max_retries})")
+                            logger.warning(f"503 Service Unavailable. Retrying in {delay:.2f}s...")
                             await asyncio.sleep(delay)
                             retry_count += 1
                             continue
                         else:
-                            logger.error("最大リトライ回数に達しました。")
+                            logger.error("Max retries reached for 503.")
                             self.last_error_code = 503
                     case _:
                         self.last_error_code = e.code
-                        pass
                 return self.get_error_message(self.last_error_code)
             except Exception as e:
                 logger.exception(f"Unexpected Error: {e}")
