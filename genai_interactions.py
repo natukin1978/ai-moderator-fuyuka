@@ -6,7 +6,7 @@ import pickle
 import random
 
 from google import genai
-from google.genai import errors, types
+from google.genai import errors
 
 import global_value as g
 from cache_helper import get_cache_filepath

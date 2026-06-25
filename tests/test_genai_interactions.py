@@ -1,5 +1,4 @@
 import os
-import pickle
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -21,6 +20,7 @@ g.config = {
 }
 
 from google.genai import errors
+
 from genai_interactions import GenAIInteractions
 
 
