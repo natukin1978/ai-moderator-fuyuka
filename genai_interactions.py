@@ -173,52 +173,76 @@ class GenAIInteractions:
 
                 return ""
 
-            except errors.APIError as e:
-                logger.error(e)
-                match e.code:
-                    case 429:
-                        # トークン枯渇
-
-                        # 全てのキーを試してもダメだった場合のガード
-                        key_switch_count += 1
-                        if key_switch_count >= max_key_switches:
-                            logger.error("All API keys are exhausted.")
-                            self.last_error_code = 429
-                            return self.get_error_message(429)
-
-                        logger.warning("Token exhausted, switching API key...")
-                        self.last_error_code = None
-                        self.get_api_key_index(1)
-                        self.client = None
-                        self.interaction_id = None  # キーが変わるとIDも無効になる
-                        # history は保持したまま（次のキーでコンテキスト注入に使う）
-                        retry_count = 0 # 503用のカウンタも念のためリセット
-
-                        if os.path.isfile(self.FILENAME_INTERACTION_ID):
-                            try:
-                                os.remove(self.FILENAME_INTERACTION_ID)
-                            except Exception as ex:
-                                logger.error(f"Failed to delete file: {ex}")
-                        continue
-
-                    case 503:
-                        # 高需要（サーバー過負荷）
-                        if retry_count < max_retries:
-                            # 指数バックオフの計算
-                            delay = (2 ** retry_count) + random.uniform(0, 1)
-                            logger.warning(f"503 Service Unavailable. Retrying in {delay:.2f}s...")
-                            await asyncio.sleep(delay)
-                            retry_count += 1
-                            continue
-                        else:
-                            logger.error("Max retries reached for 503.")
-                            self.last_error_code = 503
-                    case _:
-                        self.last_error_code = e.code
-                return self.get_error_message(self.last_error_code)
             except Exception as e:
-                logger.exception(f"Unexpected Error: {e}")
-                return g.ERROR_MESSAGE
+                # エラーオブジェクトやメッセージからステータスコードを確実に特定する
+                status_code = None
+
+                # 属性(code や status_code)から取得を試みる
+                if hasattr(e, "code") and e.code is not None:
+                    status_code = e.code
+                elif hasattr(e, "status_code") and e.status_code is not None:
+                    status_code = e.status_code
+
+                # 例外クラス名から判定（429すり抜け対策）
+                if isinstance(e, errors.RateLimitError) or "RateLimitError" in type(e).__name__:
+                    status_code = 429
+
+                # 文字列から判定（最後のセーフティネット）
+                if status_code is None:
+                    err_str = str(e).lower()
+                    if "429" in err_str or "too_many_requests" in err_str or "quota" in err_str:
+                        status_code = 429
+                    elif "503" in err_str or "service unavailable" in err_str:
+                        status_code = 503
+
+                # ------------------------------------------------------------------
+                # ステータスコードに応じた分岐処理（元の分岐ロジックの完全復活）
+                # ------------------------------------------------------------------
+                if status_code == 429:
+                    # 【429: トークン・クォータ枯渇（キー切り替え）】
+                    key_switch_count += 1
+                    if key_switch_count >= max_key_switches:
+                        logger.error("All API keys are exhausted.")
+                        self.last_error_code = 429
+                        return self.get_error_message(429)
+
+                    logger.warning("Token/Quota exhausted, switching API key...")
+                    self.last_error_code = None
+                    self.get_api_key_index(1)
+                    self.client = None
+                    self.interaction_id = None
+                    retry_count = 0  # 503用のカウンタもリセット
+
+                    if os.path.isfile(self.FILENAME_INTERACTION_ID):
+                        try:
+                            os.remove(self.FILENAME_INTERACTION_ID)
+                        except Exception as ex:
+                            logger.error(f"Failed to delete file: {ex}")
+                    continue
+
+                elif status_code == 503:
+                    # 【503: 高需要・サーバー負荷（指数バックオフリトライ）】
+                    if retry_count < max_retries:
+                        # 元の指数バックオフロジック
+                        delay = (2 ** retry_count) + random.uniform(0, 1)
+                        logger.warning(f"503 Service Unavailable. Retrying in {delay:.2f}s...")
+                        await asyncio.sleep(delay)
+                        retry_count += 1
+                        continue
+                    else:
+                        logger.error("Max retries reached for 503.")
+                        self.last_error_code = 503
+                        return self.get_error_message(503)
+
+                else:
+                    # 【その他のエラー（400エラーや本当の予期せぬ例外）】
+                    if status_code is not None:
+                        self.last_error_code = status_code
+                        logger.error(f"API Error ({status_code}): {e}")
+                        return self.get_error_message(self.last_error_code)
+                    else:
+                        logger.exception(f"Unexpected Error: {e}")
+                        return g.ERROR_MESSAGE
 
     async def send_message(self, message: str) -> str:
         return await self.generate_text(message)
