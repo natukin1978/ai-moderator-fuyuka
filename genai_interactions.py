@@ -128,6 +128,27 @@ class GenAIInteractions:
         lines.append(message)
         return "\n".join(lines)
 
+    def _extract_status_code(self, e: Exception) -> int | None:
+        """例外オブジェクトから HTTP ステータスコードを抽出するヘルパーメソッド"""
+        # 新SDK特有の例外クラス名から最優先で判定
+        if isinstance(e, errors.RateLimitError) or "RateLimitError" in type(e).__name__:
+            return 429
+
+        # オブジェクトの属性（code / status_code）をチェック
+        if getattr(e, "code", None) is not None:
+            return e.code
+        if getattr(e, "status_code", None) is not None:
+            return e.status_code
+
+        # エラーメッセージの文字列から判定（最後のセーフティネット）
+        err_str = str(e).lower()
+        if any(x in err_str for x in ["429", "too_many_requests", "quota"]):
+            return 429
+        if any(x in err_str for x in ["503", "service unavailable"]):
+            return 503
+
+        return None
+
     async def generate_text(self, message: str) -> str:
         retry_count = 0  # 503用のリトライカウンタ
         max_retries = 5  # 最大リトライ回数
@@ -175,28 +196,10 @@ class GenAIInteractions:
 
             except Exception as e:
                 # エラーオブジェクトやメッセージからステータスコードを確実に特定する
-                status_code = None
-
-                # 属性(code や status_code)から取得を試みる
-                if hasattr(e, "code") and e.code is not None:
-                    status_code = e.code
-                elif hasattr(e, "status_code") and e.status_code is not None:
-                    status_code = e.status_code
-
-                # 例外クラス名から判定（429すり抜け対策）
-                if isinstance(e, errors.RateLimitError) or "RateLimitError" in type(e).__name__:
-                    status_code = 429
-
-                # 文字列から判定（最後のセーフティネット）
-                if status_code is None:
-                    err_str = str(e).lower()
-                    if "429" in err_str or "too_many_requests" in err_str or "quota" in err_str:
-                        status_code = 429
-                    elif "503" in err_str or "service unavailable" in err_str:
-                        status_code = 503
+                status_code = self._extract_status_code(e)
 
                 # ------------------------------------------------------------------
-                # ステータスコードに応じた分岐処理（元の分岐ロジックの完全復活）
+                # ステータスコードに応じた分岐処理
                 # ------------------------------------------------------------------
                 if status_code == 429:
                     # 【429: トークン・クォータ枯渇（キー切り替え）】
@@ -211,7 +214,7 @@ class GenAIInteractions:
                     self.get_api_key_index(1)
                     self.client = None
                     self.interaction_id = None
-                    retry_count = 0  # 503用のカウンタもリセット
+                    retry_count = 0
 
                     if os.path.isfile(self.FILENAME_INTERACTION_ID):
                         try:
@@ -223,7 +226,6 @@ class GenAIInteractions:
                 elif status_code == 503:
                     # 【503: 高需要・サーバー負荷（指数バックオフリトライ）】
                     if retry_count < max_retries:
-                        # 元の指数バックオフロジック
                         delay = (2 ** retry_count) + random.uniform(0, 1)
                         logger.warning(f"503 Service Unavailable. Retrying in {delay:.2f}s...")
                         await asyncio.sleep(delay)
@@ -235,7 +237,7 @@ class GenAIInteractions:
                         return self.get_error_message(503)
 
                 else:
-                    # 【その他のエラー（400エラーや本当の予期せぬ例外）】
+                    # 【その他のエラー】
                     if status_code is not None:
                         self.last_error_code = status_code
                         logger.error(f"API Error ({status_code}): {e}")
