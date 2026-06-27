@@ -6,7 +6,6 @@ import pickle
 import random
 
 from google import genai
-from google.genai import errors
 
 import global_value as g
 from cache_helper import get_cache_filepath
@@ -130,15 +129,17 @@ class GenAIInteractions:
 
     def _extract_status_code(self, e: Exception) -> int | None:
         """例外オブジェクトから HTTP ステータスコードを抽出するヘルパーメソッド"""
-        # 新SDK特有の例外クラス名から最優先で判定
-        if isinstance(e, errors.RateLimitError) or "RateLimitError" in type(e).__name__:
-            return 429
-
-        # オブジェクトの属性（code / status_code）をチェック
+        # オブジェクトの属性（code / status_code）を最優先でチェック
         if getattr(e, "code", None) is not None:
             return e.code
         if getattr(e, "status_code", None) is not None:
             return e.status_code
+
+        # 例外クラスの「名前（文字列）」から判定
+        # クラスを直接参照しないため、AttributeError を完全に回避できます
+        type_name = type(e).__name__
+        if "RateLimitError" in type_name:
+            return 429
 
         # エラーメッセージの文字列から判定（最後のセーフティネット）
         err_str = str(e).lower()
