@@ -202,7 +202,19 @@ class GenAIInteractions:
                 # ------------------------------------------------------------------
                 # ステータスコードに応じた分岐処理
                 # ------------------------------------------------------------------
-                if status_code == 429:
+                if status_code == 404:
+                    # 【404: セッション消失（IDをクリアして同じキーで即時リトライ）】
+                    logger.warning("Session (interaction_id) not found on server. Clearing ID and retrying with local history...")
+                    self.interaction_id = None  # IDを初期化して、次回ループで build_context_input を通す
+
+                    if os.path.isfile(self.FILENAME_INTERACTION_ID):
+                        try:
+                            os.remove(self.FILENAME_INTERACTION_ID)
+                        except Exception as ex:
+                            logger.error(f"Failed to delete file: {ex}")
+                    continue  # 同じキーのままループの先頭に戻って再試行
+
+                elif status_code == 429:
                     # 【429: トークン・クォータ枯渇（キー切り替え）】
                     key_switch_count += 1
                     if key_switch_count >= max_key_switches:
