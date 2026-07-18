@@ -114,7 +114,7 @@ class ChatModel(BaseModel):
     content: str = "おはようございます。今日もよろしくお願いします。"
     needsResponse: bool = False
     noisy: bool = False
-    additionalRequests: str = f"あなたの回答は{answerLength}文字以内にまとめてください"
+    additionalRequests: list[str] = [f"あなたの回答は{answerLength}文字以内にまとめてください"]
 
 
 class ChatResult(BaseModel):
@@ -190,17 +190,15 @@ def update_viewerStatus(json_data: dict[str, any]):
 
     json_data["viewerStatus"] = viewerStatus
 
-def push_additionalRequests(json_data: dict[str, any]):
-    additional_requests = []
-    if "additionalRequests" in json_data and json_data["additionalRequests"]:
-        additional_requests.append(json_data["additionalRequests"])
-    additional_requests.append(g.ADDITIONAL_REQUESTS_PROMPT)
-    json_data["additionalRequests"] = " ".join(additional_requests)
-
+def append_additional_request(
+    json_data: dict[str, any], value: str
+) -> None:
+    ars = json_data.get("additionalRequests", [])
+    ars.append(value)
+    json_data["additionalRequests"] = ars
 
 def clean_and_extract_alt_by_json(json_data: dict[str, any]) -> None:
     json_data["content"] = clean_and_extract_alt(json_data["content"])
-
 
 async def flow_story_genai_chat() -> str:
     if not g.story_buffer:
@@ -215,7 +213,7 @@ async def flow_story_genai_chat() -> str:
         "content": g.story_buffer.rstrip(),
         "needsResponse": False,
         "noisy": True,
-        "additionalRequests": "Get a general idea of the flow of the conversation.",
+        "additionalRequests": ["Get a general idea of the flow of the conversation."],
     }
     response_text = await send_message_genai_chat(json_data)
     g.story_buffer = ""
@@ -291,7 +289,7 @@ async def chat_endpoint(id: str, chat: ChatModel) -> ChatResult:
     await manager.broadcast_json(response_json)
 
     await flow_story_genai_chat()
-    push_additionalRequests(json_data)
+    append_additional_request(json_data, g.ADDITIONAL_REQUESTS_PROMPT)
     response_text = await send_message_genai_chat(json_data)
 
     response_json["response"] = response_text
@@ -319,7 +317,7 @@ async def chat_ws(websocket: WebSocket, id: str) -> None:
             await manager.broadcast_json(response_json)
 
             await flow_story_genai_chat()
-            push_additionalRequests(json_data)
+            append_additional_request(json_data, g.ADDITIONAL_REQUESTS_PROMPT)
             response_text = await send_message_genai_chat(json_data)
             if not response_text:
                 continue
