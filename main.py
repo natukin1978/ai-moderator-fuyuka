@@ -229,12 +229,31 @@ async def _flow_story(json_data: dict[str, any]) -> str:
     return remove_newlines(response_text)
 
 
-async def send_message_genai_chat(json_data: dict[str, any]) -> str:
+async def send_message_genai_chat(
+    json_data: dict[str, any], max_retries: int = 3
+) -> str:
+    """
+    AIにテキストメッセージを送信し、NGワードが含まれていた場合は指定回数まで再生成を行います。
+
+    Args:
+        json_data (dict[str, any]): 送信するデータの辞書
+        max_retries (int, optional): NGワード検出時の最大リトライ回数。デフォルトは3回。
+
+    Returns:
+        str: 生成されたテキスト（改行除去済み）
+    """
     ng_words = read_ng_words()
-    pattern = "|".join(ng_words)
+
+    # ng_words が空の場合のエラーを防ぐチェック
+    pattern = "|".join(ng_words) if ng_words else r"$^"
+
     json_data_send = copy.deepcopy(json_data)
     update_viewerStatus(json_data_send)
     remove_keys_by_value(json_data_send, ["noisy"], False)
+
+    # 現在のリトライ回数を保持する変数
+    retry_count = 0
+
     while True:
         response_text = await genai_chat.send_message_by_json(json_data_send)
         if not response_text:
@@ -244,11 +263,20 @@ async def send_message_genai_chat(json_data: dict[str, any]) -> str:
         if match:
             matched_word = match.group()
             logger.warning(response_text)
-            # 指摘文に具体的なキーワードを埋め込む
+
+            # リトライ上限に達しているか確認
+            if retry_count >= max_retries:
+                logger.error(
+                    f"リトライ上限（{max_retries}回）に達したため、NGワード `{matched_word}` を許容して返却します。"
+                )
+                return remove_newlines(response_text)
+
+            # カウントを増やして再指示文を作成
+            retry_count += 1
             content = (
                 f"{json_data['dateTime']}の出力ですが`{matched_word}`という文章を含めずやり直してください。"
             )
-            logger.warning(content)
+            logger.warning(f"リトライ実行 ({retry_count}/{max_retries}): {content}")
             json_data_send["content"] = content
         else:
             return remove_newlines(response_text)
